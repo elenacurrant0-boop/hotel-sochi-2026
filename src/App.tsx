@@ -26,7 +26,8 @@ import {
   BarChart3,
   PieChart,
   Stethoscope,
-  Layers
+  Layers,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -1162,9 +1163,9 @@ export default function App() {
               color: 'text-blue-600',
               items: [
                 { id: 'dashboard', label: 'Сводная панель', icon: LayoutDashboard, roles: ['ADMIN', 'OWNER', 'DEMO'] },
-                { id: 'medicine', label: 'Медицина', icon: Stethoscope, roles: ['ADMIN', 'OWNER', 'DEMO'] },
-                { id: 'packages', label: 'Пакетные предложения', icon: Layers },
-                { id: 'calculation', label: 'Калькуляция цен', icon: Calculator, roles: ['ADMIN', 'OWNER', 'DEMO'] },
+                { id: 'medicine', label: 'Медицина', icon: Stethoscope, roles: ['ADMIN', 'OWNER', 'DEMO'], demoLocked: true },
+                { id: 'packages', label: 'Пакетные предложения', icon: Layers, demoLocked: true },
+                { id: 'calculation', label: 'Калькуляция цен', icon: Calculator, roles: ['ADMIN', 'OWNER', 'DEMO'], demoLocked: true },
               ]
             },
             {
@@ -1172,10 +1173,10 @@ export default function App() {
               roles: ['ADMIN', 'OWNER', 'DEMO'],
               color: 'text-purple-600',
               items: [
-                { id: 'report', label: 'Отчет Аналитику', icon: Printer },
-                { id: 'marketing', label: 'Аналитик (ИИ)', icon: Sparkles },
-                { id: 'kpi', label: 'Операционка (KPI)', icon: Activity },
-                { id: 'critical', label: 'Анализ рисков', icon: AlertCircle },
+                { id: 'report', label: 'Отчет Аналитику', icon: Printer, demoLocked: true },
+                { id: 'marketing', label: 'Аналитик (ИИ)', icon: Sparkles, demoLocked: true },
+                { id: 'kpi', label: 'Операционка (KPI)', icon: Activity, demoLocked: true },
+                { id: 'critical', label: 'Анализ рисков', icon: AlertCircle, demoLocked: true },
               ]
             },
             {
@@ -1197,29 +1198,36 @@ export default function App() {
                   <p className={`text-[10px] font-bold uppercase tracking-widest ${group.color}`}>{group.title}</p>
                 </div>
                 <div className="space-y-1">
-                  {group.items.filter(item => !item.roles || item.roles.includes(userRole as UserRole)).map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-6 py-2.5 transition-all relative group ${
-                        activeTab === item.id 
-                        ? 'text-indigo-600 bg-indigo-50/50 font-semibold' 
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                      }`}
-                    >
-                      <item.icon size={18} className={`${activeTab === item.id ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                      <span className="text-sm">{item.label}</span>
-                      {activeTab === item.id && (
-                        <motion.div 
-                          layoutId="activeTabIndicator" 
-                          className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-indigo-600 rounded-r-full" 
-                        />
-                      )}
-                    </button>
-                  ))}
+                  {group.items.filter((item: any) => !item.roles || item.roles.includes(userRole as UserRole)).map((item: any) => {
+                    const isLocked = userRole === 'DEMO' && item.demoLocked;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (isLocked) return;
+                          setActiveTab(item.id);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-6 py-2.5 transition-all relative group ${
+                          isLocked
+                            ? 'text-slate-300 cursor-not-allowed'
+                            : activeTab === item.id
+                              ? 'text-indigo-600 bg-indigo-50/50 font-semibold'
+                              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <item.icon size={18} className={isLocked ? 'text-slate-300' : activeTab === item.id ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'} />
+                        <span className="text-sm flex-1 text-left">{item.label}</span>
+                        {isLocked && <Lock size={12} className="text-slate-300 shrink-0" />}
+                        {!isLocked && activeTab === item.id && (
+                          <motion.div
+                            layoutId="activeTabIndicator"
+                            className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-indigo-600 rounded-r-full"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
