@@ -194,6 +194,7 @@ export default function App() {
         if (!localStorage.getItem('sochi_demo_start')) {
           localStorage.setItem('sochi_demo_start', Date.now().toString());
         }
+        setAllState(getBlankState());
         setIsSandbox(true);
         localStorage.setItem('sochi_sandbox', 'true');
       }
@@ -324,6 +325,26 @@ export default function App() {
     });
     return data;
   }));
+
+  // --- Blank state for demo users ---
+  const getBlankState = () => ({
+    rooms: { standard: 0, comfort: 0, lux: 0 },
+    pkgMix: { aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 },
+    prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 }])),
+    roomMonthlyData: MONTHS.map(() => Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { plan: 0, fact: 0 }]))),
+    monthlyFact: MONTHS.map(() => ({ occFact: 0, rnFact: 0, revFact: 0 })),
+    monthlyGuestCoeff: MONTHS.map(() => 2.0),
+    segmentData: MONTHS.map(() => ({
+      direct: { plan: 20, fact: 0, revFact: 0 },
+      to: { plan: 20, fact: 0, revFact: 0 },
+      fss: { plan: 20, fact: 0, revFact: 0 },
+      corp: { plan: 25, fact: 0, revFact: 0 },
+      ota: { plan: 15, fact: 0, revFact: 0 },
+    })),
+    globalPriceAdj: 0,
+    globalOccAdj: 0,
+    expenseModel: { utilities: 0, maintenance: 0, marketing: 0, admin: 0, insurance: 0, lease: 0, security: 0, it: 0, laundry: 0, other: 0 },
+  });
 
   // --- Data Sync Logic ---
   const getAllState = () => ({
