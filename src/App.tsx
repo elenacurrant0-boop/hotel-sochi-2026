@@ -3280,7 +3280,7 @@ export default function App() {
                                 <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
                                 {SEGS.map(s => (
                                   <React.Fragment key={s.key}>
-                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'68px'}}>Доля, %</th>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'68px'}}>Загрузка, %</th>
                                     <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'110px'}}>тыс. руб</th>
                                   </React.Fragment>
                                 ))}
@@ -3315,7 +3315,7 @@ export default function App() {
                                             type="number"
                                             value={row[si].planPct}
                                             onChange={(e) => handleSegmentChange(mIdx, s.key, 'plan', e.target.value)}
-                                            className={`w-full text-center text-sm font-bold ${s.txt} outline-none bg-transparent px-1 py-2.5`}
+                                            className={`w-full text-center text-xs font-bold ${s.txt} outline-none bg-transparent px-1 py-2`}
                                           />
                                         </td>
                                         <td className={`text-right pr-3 py-2.5 ${s.row}`}>
@@ -3389,13 +3389,13 @@ export default function App() {
                                 <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
                                 {SEGS.map(s => (
                                   <React.Fragment key={s.key}>
-                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'68px'}}>Факт, %</th>
-                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'110px'}}>Факт, млн ₽</th>
-                                    <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2" style={{width:'72px'}}>Откл., %</th>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'64px'}}>Загрузка, %</th>
+                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'130px'}}>Доходы, тыс. руб</th>
+                                    <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2" style={{width:'56px'}}>Откл., %</th>
                                   </React.Fragment>
                                 ))}
-                                <th className="bg-emerald-900 text-[10px] font-semibold text-emerald-200 text-right py-2 pr-3 border-l-2 border-emerald-700" style={{width:'110px'}}>Факт, млн ₽</th>
-                                <th className="bg-emerald-900 text-[10px] font-semibold text-emerald-200 text-center py-2" style={{width:'72px'}}>Откл., %</th>
+                                <th className="bg-emerald-900 text-[10px] font-semibold text-emerald-200 text-right py-2 pr-3 border-l-2 border-emerald-700" style={{width:'130px'}}>Доходы, тыс. руб</th>
+                                <th className="bg-emerald-900 text-[10px] font-semibold text-emerald-200 text-center py-2" style={{width:'56px'}}>Откл., %</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3418,7 +3418,7 @@ export default function App() {
                                               value={segmentData[mIdx][s.key as keyof typeof segmentData[0]].fact || ''}
                                               placeholder="—"
                                               onChange={(e) => handleSegmentChange(mIdx, s.key, 'fact', e.target.value)}
-                                              className={`w-full text-center text-sm font-bold ${s.txt} outline-none bg-transparent px-1 py-2.5`}
+                                              className={`w-full text-center text-xs font-bold ${s.txt} outline-none bg-transparent px-1 py-2`}
                                             />
                                           </td>
                                           <td className={`p-0 ${s.row}`}>
@@ -3437,7 +3437,7 @@ export default function App() {
                                       );
                                     })}
                                     <td className={`text-right pr-3 py-2.5 border-l-2 border-emerald-100 text-sm font-black ${rowHasFact ? 'text-emerald-700' : 'text-slate-300'}`}>
-                                      {rowHasFact ? (rowTotalFact / 1000000).toFixed(2) : '—'}
+                                      {rowHasFact ? formatThs(rowTotalFact) : '—'}
                                     </td>
                                     <td className={`text-center py-2.5 text-sm font-bold ${varCls(rowDevPct)}`}>
                                       {varTxt(rowDevPct)}
@@ -3464,12 +3464,12 @@ export default function App() {
                                       return (
                                         <React.Fragment key={s.key}>
                                           <td className="text-center text-slate-400 border-l-2 border-slate-700">—</td>
-                                          <td className="text-right pr-3 font-black text-base text-emerald-300">{t.factRev > 0 ? (t.factRev / 1000000).toFixed(1) : '—'}</td>
+                                          <td className="text-right pr-3 font-black text-base text-emerald-300">{t.factRev > 0 ? formatThs(t.factRev) : '—'}</td>
                                           <td className={`text-center font-bold text-sm ${dev !== null ? (dev >= 0 ? 'text-emerald-300' : 'text-red-300') : 'text-slate-500'}`}>{varTxt(dev)}</td>
                                         </React.Fragment>
                                       );
                                     })}
-                                    <td className="text-right pr-3 font-black text-base text-emerald-300 border-l-2 border-emerald-700">{grandFact > 0 ? (grandFact / 1000000).toFixed(1) : '—'}</td>
+                                    <td className="text-right pr-3 font-black text-base text-emerald-300 border-l-2 border-emerald-700">{grandFact > 0 ? formatThs(grandFact) : '—'}</td>
                                     <td className={`text-center font-bold text-sm ${grandDev !== null ? (grandDev >= 0 ? 'text-emerald-300' : 'text-red-300') : 'text-slate-500'}`}>{varTxt(grandDev)}</td>
                                   </tr>
                                 );
