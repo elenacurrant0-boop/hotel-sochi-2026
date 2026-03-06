@@ -353,15 +353,15 @@ export default function App() {
   // Load shared state on mount
   useEffect(() => {
     if (!isSandbox) {
-      fetch('/api/model')
-        .then(res => res.json())
-        .then(data => {
-          if (data) {
-            setAllState(data);
-            setLastSynced(new Date());
-          }
-        })
-        .catch(err => console.error("Failed to fetch shared model:", err));
+      try {
+        const saved = localStorage.getItem('sochi_model_data');
+        if (saved) {
+          setAllState(JSON.parse(saved));
+          setLastSynced(new Date());
+        }
+      } catch (err) {
+        console.error("Failed to load model from localStorage:", err);
+      }
     }
   }, [isSandbox]);
 
@@ -371,19 +371,13 @@ export default function App() {
 
     const timer = setTimeout(() => {
       setIsSyncing(true);
-      fetch('/api/model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(getAllState())
-      })
-      .then(() => {
+      try {
+        localStorage.setItem('sochi_model_data', JSON.stringify(getAllState()));
         setLastSynced(new Date());
-        setIsSyncing(false);
-      })
-      .catch(err => {
-        console.error("Failed to save shared model:", err);
-        setIsSyncing(false);
-      });
+      } catch (err) {
+        console.error("Failed to save model to localStorage:", err);
+      }
+      setIsSyncing(false);
     }, 2000);
 
     return () => clearTimeout(timer);
