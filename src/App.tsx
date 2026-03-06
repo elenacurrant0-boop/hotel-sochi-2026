@@ -3435,6 +3435,101 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* ══ ДЕТАЛЬНАЯ РАСКЛАДКА РАСЧЁТА ══ */}
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-5 py-4 bg-slate-700 border-b border-slate-600">
+                          <h2 className="text-sm font-bold text-white uppercase tracking-wider">Детальная раскладка — проверка расчёта</h2>
+                          <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                            RN сег. = RN всего × Доля%　·　ADR нетто = Базовый ADR × Коэфф%　·　Выручка = RN сег. × ADR нетто
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full data-table min-w-[1200px] text-xs">
+                            <thead>
+                              <tr>
+                                <th className="text-left bg-slate-900 sticky left-0 z-10 py-3 px-3 text-xs" style={MW}>Месяц</th>
+                                <th className="bg-slate-800 text-slate-300 text-center py-3 px-2" style={{width:'70px'}}>RN всего</th>
+                                <th className="bg-slate-800 text-slate-300 text-center py-3 px-2 border-r-2 border-slate-600" style={{width:'90px'}}>Баз. ADR, ₽</th>
+                                {SEGS.map(s => (
+                                  <th key={s.key} colSpan={3} className={`text-center py-3 ${s.hdr} border-l-2 border-slate-700 text-[10px]`}>
+                                    {s.label} · {(segmentCoeffs as any)[s.key]}%
+                                  </th>
+                                ))}
+                              </tr>
+                              <tr>
+                                <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
+                                <th className="bg-slate-800 text-[10px] text-slate-500 text-center py-1.5"></th>
+                                <th className="bg-slate-800 text-[10px] text-slate-500 text-center py-1.5 border-r-2 border-slate-600"></th>
+                                {SEGS.map(s => (
+                                  <React.Fragment key={s.key}>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-1.5" style={{width:'65px'}}>RN</th>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 text-center py-1.5" style={{width:'80px'}}>ADR нетто, ₽</th>
+                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-1.5 pr-3" style={{width:'90px'}}>тыс. руб</th>
+                                  </React.Fragment>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {MONTHS.map((m, mIdx) => {
+                                const res = totals.monthResults[mIdx];
+                                const mRN = res.mRN;
+                                const baseADR = mRN > 0 ? res.mRevBase / mRN : 0;
+                                const row = mData[mIdx];
+                                return (
+                                  <tr key={mIdx} className="hover:bg-slate-50 border-b border-slate-100">
+                                    <td className="font-bold text-slate-900 sticky left-0 bg-white z-10 py-2 px-3 border-r border-slate-100" style={MW}>{m.name}</td>
+                                    <td className="text-center py-2 font-mono text-slate-700 font-semibold">{Math.round(mRN).toLocaleString()}</td>
+                                    <td className="text-center py-2 font-mono text-slate-700 font-semibold border-r-2 border-slate-200">
+                                      {Math.round(baseADR).toLocaleString()}
+                                    </td>
+                                    {SEGS.map((s, si) => (
+                                      <React.Fragment key={s.key}>
+                                        <td className="text-center py-2 border-l-2 border-slate-100 text-slate-600">
+                                          {Math.round(row[si].segRN).toLocaleString()}
+                                        </td>
+                                        <td className="text-center py-2 font-mono text-slate-700">
+                                          {row[si].netADR > 0 ? Math.round(row[si].netADR).toLocaleString() : '—'}
+                                        </td>
+                                        <td className={`text-right pr-3 py-2 ${s.row}`}>
+                                          <span className={`font-bold ${s.txt}`}>{formatThs(row[si].planRev)}</span>
+                                        </td>
+                                      </React.Fragment>
+                                    ))}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              {(() => {
+                                const totBySegs = SEGS.map((_, si) => ({
+                                  totalRN: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].segRN, 0),
+                                  planRev: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].planRev, 0),
+                                }));
+                                const totalRN = MONTHS.reduce((a, __, mIdx) => a + totals.monthResults[mIdx].mRN, 0);
+                                const totalRevBase = MONTHS.reduce((a, __, mIdx) => a + totals.monthResults[mIdx].mRevBase, 0);
+                                const avgBaseADR = totalRN > 0 ? totalRevBase / totalRN : 0;
+                                return (
+                                  <tr className="bg-slate-900 text-white">
+                                    <td className="py-2.5 px-3 uppercase text-[9px] tracking-wider sticky left-0 bg-slate-900" style={MW}>ИТОГО ГОД</td>
+                                    <td className="text-center font-mono font-bold">{Math.round(totalRN).toLocaleString()}</td>
+                                    <td className="text-center font-mono text-slate-300 border-r-2 border-slate-600">{Math.round(avgBaseADR).toLocaleString()}</td>
+                                    {SEGS.map((s, si) => (
+                                      <React.Fragment key={s.key}>
+                                        <td className="text-center text-slate-300 border-l-2 border-slate-700">{Math.round(totBySegs[si].totalRN).toLocaleString()}</td>
+                                        <td className="text-center text-slate-400 text-[10px]">
+                                          {totBySegs[si].totalRN > 0 ? Math.round(totBySegs[si].planRev / totBySegs[si].totalRN).toLocaleString() : '—'}
+                                        </td>
+                                        <td className="text-right pr-3 font-black text-slate-100">{formatThs(totBySegs[si].planRev)}</td>
+                                      </React.Fragment>
+                                    ))}
+                                  </tr>
+                                );
+                              })()}
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+
                       {/* ══ ТАБЛИЦА 2: ФАКТ + ОТКЛОНЕНИЕ ══ */}
                       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="px-5 py-4 bg-emerald-950 border-b border-emerald-800 flex items-baseline gap-3">
