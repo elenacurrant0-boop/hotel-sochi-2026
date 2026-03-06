@@ -145,7 +145,7 @@ export default function App() {
         if (start) {
           const startTime = parseInt(start);
           const now = Date.now();
-          const threeDays = 3 * 24 * 60 * 60 * 1000;
+          const threeDays = 1 * 24 * 60 * 60 * 1000;
           if (now - startTime > threeDays) {
             localStorage.removeItem('sochi_role');
             return null;
@@ -162,6 +162,7 @@ export default function App() {
     "ADMIN2026": "ADMIN",
     "STAFF2026": "STAFF",
     "OWNER2026": "OWNER",
+    "AQVASPA2026": "OWNER",
     "ANALYST2026": "OWNER",
     "DEMO2026": "DEMO",
     "АДМИН2026": "ADMIN",
@@ -1250,7 +1251,7 @@ export default function App() {
                     <motion.div 
                       initial={{ width: '100%' }}
                       animate={{ 
-                        width: `${Math.max(0, 100 - ((Date.now() - parseInt(localStorage.getItem('sochi_demo_start') || '0')) / (3 * 24 * 60 * 60 * 1000) * 100))}%` 
+                        width: `${Math.max(0, 100 - ((Date.now() - parseInt(localStorage.getItem('sochi_demo_start') || '0')) / (1 * 24 * 60 * 60 * 1000) * 100))}%` 
                       }}
                       className="bg-indigo-500 h-full"
                     />
