@@ -55,66 +55,63 @@ const PACKAGES = [
 ];
 
 const SEASONS = [
-  { name: "Период 1", dates: "12.02–19.02", days: 8, defaultOcc: 45, defaultGuests: 2.2, isLow: true },
-  { name: "Период 2", dates: "20.02–23.02 / 06.03–09.03 / 28.03–30.04", days: 42, defaultOcc: 42, defaultGuests: 2.2, isLow: true },
-  { name: "Период 3", dates: "24.02–05.03 / 10.03–27.03", days: 28, defaultOcc: 40, defaultGuests: 2.2, isLow: true },
-  { name: "Период 4", dates: "01.05–02.05 / 08.05–10.05", days: 5, defaultOcc: 65, defaultGuests: 2.2, isMid: true },
-  { name: "Период 5", dates: "03.05–07.05 / 11.05–31.05", days: 26, defaultOcc: 55, defaultGuests: 2.2, isMid: true },
-  { name: "Период 6", dates: "01.06–20.06", days: 20, defaultOcc: 70, defaultGuests: 2.2 },
-  { name: "Период 7", dates: "21.06–24.08", days: 65, defaultOcc: 85, defaultGuests: 2.7 },
-  { name: "Период 8", dates: "25.08–30.09", days: 37, defaultOcc: 72, defaultGuests: 2.5 },
-  { name: "Период 9", dates: "01.10–31.10", days: 31, defaultOcc: 52, defaultGuests: 2.1, isMid: true },
-  { name: "Период 10", dates: "01.11–28.12", days: 58, defaultOcc: 38, defaultGuests: 2.2, isLow: true },
+  { key: 'low',      name: 'Низкий',    dates: 'ноябрь–апрель',        defaultOcc: 40, defaultGuests: 2.2, isLow: true },
+  { key: 'mid',      name: 'Средний',   dates: 'май, октябрь',          defaultOcc: 55, defaultGuests: 2.2 },
+  { key: 'high',     name: 'Высокий',   dates: 'июнь, сентябрь',        defaultOcc: 72, defaultGuests: 2.5 },
+  { key: 'peak',     name: 'Пик',       dates: 'июль–август',           defaultOcc: 85, defaultGuests: 2.7 },
+  { key: 'holidays', name: 'Праздники', dates: '23фев, 8мар, майские',  defaultOcc: 88, defaultGuests: 2.3 },
 ];
 
 const MONTHS = [
-  { name: "Январь", days: 31, distribution: [{ sIdx: 9, days: 31 }] },
-  { name: "Февраль", days: 28, distribution: [{ sIdx: 9, days: 11 }, { sIdx: 0, days: 8 }, { sIdx: 1, days: 9 }] },
-  { name: "Март", days: 31, distribution: [{ sIdx: 2, days: 5 }, { sIdx: 1, days: 4 }, { sIdx: 2, days: 18 }, { sIdx: 1, days: 4 }] },
-  { name: "Апрель", days: 30, distribution: [{ sIdx: 1, days: 30 }] },
-  { name: "Май", days: 31, distribution: [{ sIdx: 3, days: 2 }, { sIdx: 4, days: 5 }, { sIdx: 3, days: 3 }, { sIdx: 4, days: 21 }] },
-  { name: "Июнь", days: 30, distribution: [{ sIdx: 5, days: 20 }, { sIdx: 6, days: 10 }] },
-  { name: "Июль", days: 31, distribution: [{ sIdx: 6, days: 31 }] },
-  { name: "Август", days: 31, distribution: [{ sIdx: 6, days: 24 }, { sIdx: 7, days: 7 }] },
-  { name: "Сентябрь", days: 30, distribution: [{ sIdx: 7, days: 30 }] },
-  { name: "Октябрь", days: 31, distribution: [{ sIdx: 8, days: 31 }] },
-  { name: "Ноябрь", days: 30, distribution: [{ sIdx: 9, days: 30 }] },
-  { name: "Декабрь", days: 31, distribution: [{ sIdx: 9, days: 31 }] },
+  { name: "Январь",   days: 31, distribution: [{ sKey: 'low', days: 31 }] },
+  { name: "Февраль",  days: 28, distribution: [{ sKey: 'low', days: 24 }, { sKey: 'holidays', days: 4 }] },
+  { name: "Март",     days: 31, distribution: [{ sKey: 'low', days: 5 }, { sKey: 'holidays', days: 4 }, { sKey: 'low', days: 22 }] },
+  { name: "Апрель",   days: 30, distribution: [{ sKey: 'low', days: 30 }] },
+  { name: "Май",      days: 31, distribution: [{ sKey: 'holidays', days: 10 }, { sKey: 'mid', days: 21 }] },
+  { name: "Июнь",     days: 30, distribution: [{ sKey: 'high', days: 20 }, { sKey: 'peak', days: 10 }] },
+  { name: "Июль",     days: 31, distribution: [{ sKey: 'peak', days: 31 }] },
+  { name: "Август",   days: 31, distribution: [{ sKey: 'peak', days: 24 }, { sKey: 'high', days: 7 }] },
+  { name: "Сентябрь", days: 30, distribution: [{ sKey: 'high', days: 30 }] },
+  { name: "Октябрь",  days: 31, distribution: [{ sKey: 'mid', days: 31 }] },
+  { name: "Ноябрь",   days: 30, distribution: [{ sKey: 'low', days: 30 }] },
+  { name: "Декабрь",  days: 31, distribution: [{ sKey: 'low', days: 31 }] },
 ];
 
 const initialPrices = () => {
   const p: any = {
     standard: {
-      aqua_bb: SEASONS.map((_, i) => [2500, 3200, 2900, 3600, 3400, 5000, 7100, 5500, 2700, 2500][i]),
-      aqua_hb: SEASONS.map((_, i) => [2900, 3600, 3300, 4000, 3800, 5400, 7500, 5900, 3100, 2900][i]),
-      aqua_fb: SEASONS.map((_, i) => [3100, 3800, 3500, 4200, 4000, 5600, 7700, 6100, 3300, 3100][i]),
-      ultra: [3300, 4000, 3700, 4400, 4200, 5800, 7900, 6300, 3500, 3300],
-      spa: [3900, 4600, 4300, 5000, 4800, 6600, 9000, 7100, 4100, 3900],
-      med: [4100, 4800, 4500, 5200, 5000, 6800, 9200, 7300, 4300, 4100],
+      aqua_bb: { low: 2700, mid: 3400, high: 5000, peak: 7100, holidays: 3600 },
+      aqua_hb: { low: 3100, mid: 3800, high: 5400, peak: 7500, holidays: 4000 },
+      aqua_fb: { low: 3300, mid: 4000, high: 5600, peak: 7700, holidays: 4200 },
+      ultra:   { low: 3500, mid: 4200, high: 5800, peak: 7900, holidays: 4400 },
+      spa:     { low: 4100, mid: 4800, high: 6600, peak: 9000, holidays: 5000 },
+      med:     { low: 4300, mid: 5000, high: 6800, peak: 9200, holidays: 5200 },
     },
     comfort: {
-      aqua_bb: SEASONS.map((_, i) => [2700, 3400, 3100, 3800, 3600, 5200, 7300, 5700, 2900, 2700][i]),
-      aqua_hb: SEASONS.map((_, i) => [3100, 3800, 3500, 4200, 4000, 5600, 7700, 6100, 3300, 3100][i]),
-      aqua_fb: SEASONS.map((_, i) => [3300, 4000, 3700, 4400, 4200, 5800, 7900, 6300, 3500, 3300][i]),
-      ultra: [3500, 4200, 3900, 4600, 4400, 6000, 8100, 6500, 3700, 3500],
-      spa: [4100, 4800, 4500, 5200, 5000, 6800, 9200, 7300, 4300, 4100],
-      med: [4300, 5000, 4700, 5400, 5200, 7000, 9400, 7500, 4500, 4300],
+      aqua_bb: { low: 2900, mid: 3600, high: 5200, peak: 7300, holidays: 3800 },
+      aqua_hb: { low: 3300, mid: 4000, high: 5600, peak: 7700, holidays: 4200 },
+      aqua_fb: { low: 3500, mid: 4200, high: 5800, peak: 7900, holidays: 4400 },
+      ultra:   { low: 3700, mid: 4400, high: 6000, peak: 8100, holidays: 4600 },
+      spa:     { low: 4300, mid: 5000, high: 6800, peak: 9200, holidays: 5200 },
+      med:     { low: 4500, mid: 5200, high: 7000, peak: 9400, holidays: 5400 },
     },
     lux: {
-      aqua_bb: SEASONS.map((_, i) => [3400, 4100, 3800, 4500, 4300, 6200, 8700, 6800, 3700, 3400][i]),
-      aqua_hb: SEASONS.map((_, i) => [3800, 4500, 4200, 4900, 4700, 6600, 9100, 7200, 4100, 3800][i]),
-      aqua_fb: SEASONS.map((_, i) => [4000, 4700, 4400, 5100, 4900, 6800, 9300, 7400, 4300, 4000][i]),
-      ultra: [4200, 4900, 4600, 5300, 5100, 7000, 9500, 7600, 4500, 4200],
-      spa: [4800, 5500, 5200, 5900, 5700, 7800, 10600, 8400, 5100, 4800],
-      med: [5000, 5700, 5400, 6100, 5900, 8000, 10800, 8600, 5300, 5000],
+      aqua_bb: { low: 3600, mid: 4300, high: 6200, peak: 8700, holidays: 4500 },
+      aqua_hb: { low: 4000, mid: 4700, high: 6600, peak: 9100, holidays: 4900 },
+      aqua_fb: { low: 4200, mid: 4900, high: 6800, peak: 9300, holidays: 5100 },
+      ultra:   { low: 4400, mid: 5100, high: 7000, peak: 9500, holidays: 5300 },
+      spa:     { low: 5000, mid: 5700, high: 7800, peak: 10600, holidays: 5900 },
+      med:     { low: 5200, mid: 5900, high: 8000, peak: 10800, holidays: 6100 },
     }
   };
-  
+
   // Initialize promo based on ultra (default)
   Object.keys(p).forEach(rt => {
-    p[rt].promo = p[rt].ultra.map((u: number, i: number) => SEASONS[i].isLow ? Math.round(u * 0.9) : 0);
+    p[rt].promo = Object.fromEntries(
+      SEASONS.map(s => [s.key, s.isLow ? Math.round(p[rt].ultra[s.key] * 0.9) : 0])
+    );
   });
-  
+
   return p;
 };
 
@@ -237,11 +234,9 @@ export default function App() {
   const [prices, setPrices] = useState(initialPrices());
   const [seasons, setSeasons] = useState(SEASONS);
   const [targetGOPMargin, setTargetGOPMargin] = useState(40); // Target GOP Margin %
-  const [seasonData, setSeasonData] = useState(SEASONS.map(s => ({ 
-    occPlan: s.defaultOcc, 
-    occFact: 0, 
-    guests: s.defaultGuests 
-  })));
+  const [seasonData, setSeasonData] = useState(() =>
+    Object.fromEntries(SEASONS.map(s => [s.key, { occPlan: s.defaultOcc, occFact: 0, guests: s.defaultGuests }]))
+  );
   const [segmentData, setSegmentData] = useState(MONTHS.map(() => ({
     direct: { plan: 20, fact: 0, revFact: 0 },
     to: { plan: 20, fact: 0, revFact: 0 },
@@ -249,6 +244,14 @@ export default function App() {
     corp: { plan: 25, fact: 0, revFact: 0 },
     ota: { plan: 15, fact: 0, revFact: 0 },
   })));
+  const [segmentCoeffs, setSegmentCoeffs] = useState({
+    direct: 100, // % от прайса (прямые продажи — базовая цена)
+    to:      78, // % — туроператоры (скидка ~22%)
+    fss:     70, // % — ФСС / квоты (фиксированная цена по контракту)
+    corp:    88, // % — корпоративный (скидка ~12%)
+    ota:     85, // % — OTA нетто (после комиссии ~15%)
+  });
+
   const [segRefreshedAt, setSegRefreshedAt] = useState<Date | null>(null);
 
   const [roomFact, setRoomFact] = useState({
@@ -280,7 +283,7 @@ export default function App() {
     others: { spa: 5, med: 5 }
   });
 
-  const [calcSeason, setCalcSeason] = useState(0);
+  const [calcSeason, setCalcSeason] = useState('low');
   const [calcRoom, setCalcRoom] = useState('standard');
 
   const [costConfig, setCostConfig] = useState({
@@ -315,7 +318,10 @@ export default function App() {
   // Коэффициент гостей по месяцам (редактируемый, влияет на койко-дни)
   const [monthlyGuestCoeff, setMonthlyGuestCoeff] = useState(() =>
     MONTHS.map(m =>
-      parseFloat((m.distribution.reduce((acc, dist) => acc + SEASONS[dist.sIdx].defaultGuests * dist.days, 0) / m.days).toFixed(2))
+      parseFloat((m.distribution.reduce((acc, dist) => {
+        const s = SEASONS.find(s => s.key === dist.sKey)!;
+        return acc + s.defaultGuests * dist.days;
+      }, 0) / m.days).toFixed(2))
     )
   );
 
@@ -333,7 +339,8 @@ export default function App() {
     ROOM_TYPES.forEach(rt => {
       // Calculate initial plan based on seasonal defaults
       const weightedOcc = m.distribution.reduce((acc, dist) => {
-        return acc + (SEASONS[dist.sIdx].defaultOcc * dist.days);
+        const s = SEASONS.find(s => s.key === dist.sKey)!;
+        return acc + (s.defaultOcc * dist.days);
       }, 0) / m.days;
       data[rt.key] = { plan: Math.round(weightedOcc), fact: 0 };
     });
@@ -344,7 +351,7 @@ export default function App() {
   const getBlankState = () => ({
     rooms: { standard: 0, comfort: 0, lux: 0 },
     pkgMix: { aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 },
-    prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 }])),
+    prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, Object.fromEntries(PACKAGES.map(pk => [pk.key, Object.fromEntries(SEASONS.map(s => [s.key, 0]))]))  ])),
     roomMonthlyData: MONTHS.map(() => Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { plan: 0, fact: 0 }]))),
     monthlyFact: MONTHS.map(() => ({ occFact: 0, rnFact: 0, revFact: 0 })),
     monthlyGuestCoeff: MONTHS.map(() => 2.0),
@@ -362,7 +369,7 @@ export default function App() {
 
   // --- Data Sync Logic ---
   const getAllState = () => ({
-    rooms, pkgMix, prices, seasons, seasonData, segmentData,
+    rooms, pkgMix, prices, seasons, seasonData, segmentData, segmentCoeffs,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff
   });
@@ -375,6 +382,7 @@ export default function App() {
     if (data.seasons) setSeasons(data.seasons);
     if (data.seasonData) setSeasonData(data.seasonData);
     if (data.segmentData) setSegmentData(data.segmentData);
+    if (data.segmentCoeffs) setSegmentCoeffs(data.segmentCoeffs);
     if (data.costConfig) setCostConfig(data.costConfig);
     if (data.calcConfig) setCalcConfig(data.calcConfig);
     if (data.medAddonConfig) setMedAddonConfig(data.medAddonConfig);
@@ -506,11 +514,22 @@ export default function App() {
       let mMedAddonGuests = 0;
       
       let mFoodCost = 0;
-      
+      let mRevBase = 0; // выручка по базовому прайсу (до поправки на сегменты)
+
+      // Взвешенный коэффициент цены по сегментам для этого месяца
+      const segWeightedCoeff = (() => {
+        const total = (['direct', 'to', 'fss', 'corp', 'ota'] as const).reduce((acc, segKey) => {
+          const share = (segmentData[mIdx] as any)[segKey]?.plan / 100 || 0;
+          const coeff = (segmentCoeffs as any)[segKey] / 100;
+          return acc + share * coeff;
+        }, 0);
+        return total > 0 ? total : 1;
+      })();
+
       m.distribution.forEach(dist => {
-        const sIdx = dist.sIdx;
-        const s = seasons[sIdx];
-        const data = seasonData[sIdx];
+        const sKey = dist.sKey;
+        const s = seasons.find(s => s.key === sKey)!;
+        const data = seasonData[sKey];
 
         // Medical Addon calculation (Algorithm: max 5% conversion, 500 rub check)
         const convRate = medAddonConfig.maxConversion;
@@ -537,12 +556,14 @@ export default function App() {
             let mix = pkgMix[pk.key as keyof typeof pkgMix] / 100;
             if (pk.key === 'promo' && !s.isLow) mix = 0;
 
-            const basePrice = prices[rt.key][pk.key][sIdx];
+            const basePrice = prices[rt.key][pk.key][sKey];
             const price = basePrice * (1 + globalPriceAdj / 100);
-            
-            const rev = rn * mix * data.guests * price;
-            const revFact = rnFact * mix * data.guests * price;
-            
+
+            const revBase = rn * mix * data.guests * price;          // базовая цена (для затрат)
+            const rev = revBase * segWeightedCoeff;                   // цена с поправкой на сегменты
+            const revFact = rnFact * mix * data.guests * price * segWeightedCoeff;
+
+            mRevBase += revBase;
             mRev += rev;
             mRevFact += revFact;
             
@@ -565,7 +586,7 @@ export default function App() {
             else if (pk.key === 'aqua_hb') foodPct = 35; // Default for HB
             else if (pk.key === 'aqua_bb') foodPct = 20; // Default for BB
 
-            const pkgFoodRev = rev * (foodPct / 100);
+            const pkgFoodRev = revBase * (foodPct / 100);            // затраты на питание — от базовой цены
             mFoodCost += pkgFoodRev * (costConfig.foodCostPct / 100);
 
             // Internal Medical Revenue Component
@@ -573,7 +594,7 @@ export default function App() {
             if (pk.key === 'med') medPct = calcConfig.ultra_med.med;
             else if (['aqua_fb', 'ultra', 'spa', 'promo'].includes(pk.key)) medPct = calcConfig.fb_ultra_spa.med;
             else medPct = calcConfig.others.med;
-            mInternalMedRev += rev * (medPct / 100);
+            mInternalMedRev += revBase * (medPct / 100);             // внутренняя медицина — от базовой
 
             byRoomPlan[rt.key as keyof typeof byRoomPlan] += rev;
             byPkgPlan[pk.key as keyof typeof byPkgPlan] += rev;
@@ -631,8 +652,8 @@ export default function App() {
       // --- Medical Addons (already calculated in distribution loop) ---
       const mMedAddonProcs = mMedAddonGuests * medAddonConfig.procsPerGuest;
 
-      return { 
-        mRev, mRN, mBedDays, mAvgOcc, mCheckIns, mMedBedDays,
+      return {
+        mRev, mRevBase, mRN, mBedDays, mAvgOcc, mCheckIns, mMedBedDays,
         mRevFact: mFinalRevFact, mRNFact, mBedDaysFact, mAvgOccFact, mCheckInsFact, mMedBedDaysFact,
         mForecastRev,
         mGOP, mTotalCosts, mGOPMargin, mFoodCost, mComm,
@@ -660,27 +681,26 @@ export default function App() {
 
     const totalAvgOcc = (totalRN / totalPossibleRNYear) * 100;
 
-    const seasonResults = seasons.map((_, sIdx) => {
+    const seasonResults = seasons.map((s) => {
       let sRev = 0;
       let sRN = 0;
       let sBedDays = 0;
-      
-      // We need to sum up contributions to this season across all months
+
       MONTHS.forEach((m, mIdx) => {
         m.distribution.forEach(dist => {
-          if (dist.sIdx === sIdx) {
+          if (dist.sKey === s.key) {
             ROOM_TYPES.forEach(rt => {
               const roomCount = rooms[rt.key as keyof typeof rooms] || 0;
               const occPlan = roomMonthlyData[mIdx][rt.key].plan;
               const rn = roomCount * dist.days * (occPlan / 100);
               sRN += rn;
-              sBedDays += rn * seasonData[sIdx].guests;
-              
+              sBedDays += rn * seasonData[s.key].guests;
+
               PACKAGES.forEach(pk => {
                 let mix = pkgMix[pk.key as keyof typeof pkgMix] / 100;
-                if (pk.key === 'promo' && !seasons[sIdx].isLow) mix = 0;
-                const price = prices[rt.key][pk.key][sIdx];
-                sRev += rn * mix * seasonData[sIdx].guests * price;
+                if (pk.key === 'promo' && !s.isLow) mix = 0;
+                const price = prices[rt.key][pk.key][s.key];
+                sRev += rn * mix * seasonData[s.key].guests * price;
               });
             });
           }
@@ -696,29 +716,29 @@ export default function App() {
       totalInternalMedRev, totalFullMedRev, totalRoomRev, totalBudget,
       totalADR, totalRevPAR, totalTRevPAR
     };
-  }, [rooms, pkgMix, prices, seasonData, roomMonthlyData, segmentData, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff]);
+  }, [rooms, pkgMix, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff]);
 
   const formatMln = (val: number) => (val / 1000000).toFixed(1) + ' млн ₽';
   const formatThs = (val: number) => (val / 1000).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const handlePriceChange = (rtKey: string, pkKey: string, sIdx: number, val: string) => {
+  const handlePriceChange = (rtKey: string, pkKey: string, sKey: string, val: string) => {
     const newVal = parseInt(val) || 0;
     setPrices(prev => {
       const updated = {
         ...prev,
         [rtKey]: {
           ...prev[rtKey],
-          [pkKey]: prev[rtKey][pkKey].map((p: number, i: number) => i === sIdx ? newVal : p)
+          [pkKey]: { ...prev[rtKey][pkKey], [sKey]: newVal }
         }
       };
-      
+
       // If the changed package is the base for promo, update promo too
       if (pkKey === promoBasePkg) {
-        updated[rtKey].promo = updated[rtKey][promoBasePkg].map((basePrice: number, i: number) => 
-          seasons[i].isLow ? Math.round(basePrice * (1 - promoDiscount / 100)) : 0
+        updated[rtKey].promo = Object.fromEntries(
+          SEASONS.map(s => [s.key, s.isLow ? Math.round(updated[rtKey][promoBasePkg][s.key] * (1 - promoDiscount / 100)) : 0])
         );
       }
-      
+
       return updated;
     });
   };
@@ -727,21 +747,21 @@ export default function App() {
     setPrices(prev => {
       const updated = { ...prev };
       ROOM_TYPES.forEach(rt => {
-        updated[rt.key].promo = updated[rt.key][promoBasePkg].map((basePrice: number, i: number) => 
-          seasons[i].isLow ? Math.round(basePrice * (1 - promoDiscount / 100)) : 0
+        updated[rt.key].promo = Object.fromEntries(
+          SEASONS.map(s => [s.key, s.isLow ? Math.round(updated[rt.key][promoBasePkg][s.key] * (1 - promoDiscount / 100)) : 0])
         );
       });
       return updated;
     });
   }, [promoBasePkg, promoDiscount]);
 
-  const handleSeasonPeriodChange = (idx: number, field: string, val: any) => {
-    setSeasons(prev => prev.map((s, i) => i === idx ? { ...s, [field]: field === 'days' ? (parseInt(val) || 0) : val } : s));
+  const handleSeasonPeriodChange = (sKey: string, field: string, val: string) => {
+    setSeasons(prev => prev.map(s => s.key === sKey ? { ...s, [field]: val } : s));
   };
 
-  const handleSeasonChange = (idx: number, field: string, val: string) => {
+  const handleSeasonChange = (sKey: string, field: string, val: string) => {
     const newVal = parseFloat(val) || 0;
-    setSeasonData(prev => prev.map((s, i) => i === idx ? { ...s, [field]: newVal } : s));
+    setSeasonData(prev => ({ ...prev, [sKey]: { ...prev[sKey], [field]: newVal } }));
   };
 
   const handleSegmentChange = (mIdx: number, segKey: string, field: 'plan' | 'fact' | 'revFact', val: string) => {
@@ -2833,7 +2853,7 @@ export default function App() {
                   <div className="bg-indigo-900 text-white p-6 rounded-2xl shadow-sm">
                     <h3 className="font-bold mb-4 flex items-center gap-2"><TrendingUp size={18} className="text-indigo-400" /> Рекомендации по продажам</h3>
                     <div className="space-y-4 text-sm text-indigo-100">
-                      <p>• <b>Акцент на Медикал</b>: В низкий сезон (Периоды 1, 2, 3, 10) необходимо удерживать долю пакета "Med" не ниже 30% для обеспечения ADR.</p>
+                      <p>• <b>Акцент на Медикал</b>: В низкий сезон необходимо удерживать долю пакета "Med" не ниже 30% для обеспечения ADR.</p>
                       <p>• <b>Стимулирование СПА</b>: В межсезонье предлагать апгрейд с Ultra до SPA со скидкой 50% при бронировании от 3-х ночей.</p>
                       <p>• <b>Динамическое ценообразование</b>: При достижении загрузки 80% в Периоде 7 (Высокий сезон) — повышать цены на 10-15% на категорию "Стандарт".</p>
                     </div>
@@ -3226,16 +3246,21 @@ export default function App() {
 
                   // Предрасчёт план/факт по всем месяцам
                   const mData = MONTHS.map((m, mIdx) => {
-                    const mRev = totals.monthResults[mIdx].mRev;
+                    const mRevBase = totals.monthResults[mIdx].mRevBase;
+                    const mRN = totals.monthResults[mIdx].mRN;
+                    const mBaseADR = mRN > 0 ? mRevBase / mRN : 0;
                     return SEGS.map(s => {
                       const sd = segmentData[mIdx][s.key as keyof typeof segmentData[0]];
                       const planPct = sd.plan;
-                      const planRev = mRev * (planPct / 100);
+                      const coeff = (segmentCoeffs as any)[s.key] / 100;
+                      const planRev = mRevBase * (planPct / 100) * coeff;
+                      const segRN = mRN * (planPct / 100);
+                      const netADR = mBaseADR * coeff;
                       const factPct = sd.fact || 0;
                       const factRev = sd.revFact || 0;
                       const devRev = factRev > 0 ? factRev - planRev : null;
                       const devPct = factRev > 0 && planRev > 0 ? ((factRev - planRev) / planRev) * 100 : null;
-                      return { planPct, planRev, factPct, factRev, devRev, devPct };
+                      return { planPct, planRev, segRN, netADR, factPct, factRev, devRev, devPct };
                     });
                   });
 
@@ -3246,6 +3271,34 @@ export default function App() {
 
                   return (
                     <>
+                      {/* ══ КОЭФФИЦИЕНТЫ СЕГМЕНТОВ ══ */}
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-5 py-4 bg-slate-800 border-b border-slate-700">
+                          <h2 className="text-sm font-bold text-white uppercase tracking-wider">Коэффициенты ценообразования по каналам</h2>
+                          <p className="text-[10px] text-slate-400 mt-0.5">% от базового прайса (прямые продажи = 100%). Влияет на расчёт дохода в таблице плана.</p>
+                        </div>
+                        <div className="px-5 py-4 flex flex-wrap gap-4">
+                          {SEGS.map(s => (
+                            <div key={s.key} className="flex flex-col gap-1 items-center">
+                              <label className={`text-[10px] font-bold uppercase tracking-wide ${s.txt}`}>{s.label}</label>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0} max={120} step={1}
+                                  value={(segmentCoeffs as any)[s.key]}
+                                  onChange={e => setSegmentCoeffs((prev: any) => ({ ...prev, [s.key]: Number(e.target.value) }))}
+                                  className="w-16 text-center border border-slate-300 rounded px-2 py-1 text-sm font-bold text-slate-800"
+                                />
+                                <span className="text-slate-500 text-sm">%</span>
+                              </div>
+                              {(segmentCoeffs as any)[s.key] < 100 && (
+                                <span className="text-[9px] text-slate-400">скидка {100 - (segmentCoeffs as any)[s.key]}%</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* ══ ТАБЛИЦА 1: ПЛАН ══ */}
                       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="px-5 py-4 bg-indigo-950 border-b border-indigo-800 flex items-center justify-between gap-4">
@@ -3267,12 +3320,12 @@ export default function App() {
                           </button>
                         </div>
                         <div className="overflow-x-auto">
-                          <table className="w-full data-table min-w-[860px]">
+                          <table className="w-full data-table min-w-[1100px]">
                             <thead>
                               <tr>
                                 <th className="text-left bg-slate-900 sticky left-0 z-10 text-xs py-3 px-3" style={MW}>Месяц</th>
                                 {SEGS.map(s => (
-                                  <th key={s.key} colSpan={2} className={`text-center text-xs py-3 ${s.hdr} border-l-2 border-slate-700`}>{s.label}</th>
+                                  <th key={s.key} colSpan={4} className={`text-center text-xs py-3 ${s.hdr} border-l-2 border-slate-700`}>{s.label}</th>
                                 ))}
                                 <th colSpan={2} className="bg-slate-700 text-center text-xs py-3 border-l-2 border-slate-500">Итого</th>
                               </tr>
@@ -3280,14 +3333,16 @@ export default function App() {
                                 <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
                                 {SEGS.map(s => (
                                   <React.Fragment key={s.key}>
-                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'68px'}}>Загрузка, %</th>
-                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'110px'}}>тыс. руб</th>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'60px'}}>Доля, %</th>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 text-center py-2" style={{width:'60px'}}>RN</th>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 text-center py-2" style={{width:'80px'}}>ADR нетто</th>
+                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'100px'}}>тыс. руб</th>
                                   </React.Fragment>
                                 ))}
-                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2 border-l-2 border-slate-500" style={{width:'72px'}}>
+                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2 border-l-2 border-slate-500" style={{width:'60px'}}>
                                   Сумма %
                                 </th>
-                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-right py-2 pr-3" style={{width:'120px'}}>
+                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-right py-2 pr-3" style={{width:'110px'}}>
                                   тыс. руб
                                 </th>
                               </tr>
@@ -3318,6 +3373,12 @@ export default function App() {
                                             className={`w-full text-center text-xs font-bold ${s.txt} outline-none bg-transparent px-1 py-2`}
                                           />
                                         </td>
+                                        <td className="text-center py-2.5 text-xs text-slate-500">
+                                          {Math.round(row[si].segRN)}
+                                        </td>
+                                        <td className="text-center py-2.5 text-xs text-slate-600 font-mono">
+                                          {row[si].netADR > 0 ? Math.round(row[si].netADR).toLocaleString() : '—'}
+                                        </td>
                                         <td className={`text-right pr-3 py-2.5 ${s.row}`}>
                                           <span className={`text-sm font-black ${s.txt}`}>{formatThs(row[si].planRev)}</span>
                                         </td>
@@ -3343,6 +3404,7 @@ export default function App() {
                               {(() => {
                                 const totBySegs = SEGS.map((_, si) => ({
                                   planRev: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].planRev, 0),
+                                  totalRN: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].segRN, 0),
                                   avgPct: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].planPct, 0) / MONTHS.length,
                                 }));
                                 const grandTotal = totBySegs.reduce((a, s) => a + s.planRev, 0);
@@ -3354,6 +3416,10 @@ export default function App() {
                                     {SEGS.map((s, si) => (
                                       <React.Fragment key={s.key}>
                                         <td className="text-center text-slate-300 text-sm font-bold border-l-2 border-slate-700">{totBySegs[si].avgPct.toFixed(0)}%</td>
+                                        <td className="text-center text-slate-400 text-xs">{Math.round(totBySegs[si].totalRN).toLocaleString()}</td>
+                                        <td className="text-center text-slate-400 text-xs">
+                                          {totBySegs[si].totalRN > 0 ? Math.round(totBySegs[si].planRev / totBySegs[si].totalRN).toLocaleString() : '—'}
+                                        </td>
                                         <td className="text-right pr-3 font-black text-base text-slate-100">{formatThs(totBySegs[si].planRev)}</td>
                                       </React.Fragment>
                                     ))}
@@ -3670,30 +3736,21 @@ export default function App() {
                     Печать Прейскуранта
                   </button>
                 </div>
-                {seasons.map((s, sIdx) => (
-                  <div key={sIdx} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                {seasons.map((s) => (
+                  <div key={s.key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
                       <div className="flex items-center gap-4 flex-1">
-                        <input 
-                          type="text" 
-                          value={s.name} 
-                          onChange={(e) => handleSeasonPeriodChange(sIdx, 'name', e.target.value)}
+                        <input
+                          type="text"
+                          value={s.name}
+                          onChange={(e) => handleSeasonPeriodChange(s.key, 'name', e.target.value)}
                           className="text-sm font-bold text-slate-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-all"
                         />
-                        <input 
-                          type="text" 
-                          value={s.dates} 
-                          onChange={(e) => handleSeasonPeriodChange(sIdx, 'dates', e.target.value)}
+                        <input
+                          type="text"
+                          value={s.dates}
+                          onChange={(e) => handleSeasonPeriodChange(s.key, 'dates', e.target.value)}
                           className="text-xs font-normal text-slate-400 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-all"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold">Дней:</span>
-                        <input 
-                          type="number" 
-                          value={s.days} 
-                          onChange={(e) => handleSeasonPeriodChange(sIdx, 'days', e.target.value)}
-                          className="w-10 text-xs font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-all text-center"
                         />
                       </div>
                     </div>
@@ -3720,13 +3777,13 @@ export default function App() {
                               <td className="font-semibold text-slate-700">{rt.label}</td>
                               {PACKAGES.map(pk => (
                                 <td key={pk.key} className="text-center">
-                                  <input 
-                                    type="number" 
-                                    value={prices[rt.key][pk.key][sIdx] || ''}
+                                  <input
+                                    type="number"
+                                    value={prices[rt.key][pk.key][s.key] || ''}
                                     placeholder="—"
-                                    onChange={(e) => handlePriceChange(rt.key, pk.key, sIdx, e.target.value)}
+                                    onChange={(e) => handlePriceChange(rt.key, pk.key, s.key, e.target.value)}
                                     disabled={pk.key === 'promo'}
-                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][sIdx] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][s.key] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   />
                                 </td>
                               ))}
@@ -3955,8 +4012,8 @@ export default function App() {
                 <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 print:shadow-none print:border-none">
                   <div className="flex justify-between items-center mb-8 no-print">
                     <div className="flex gap-4">
-                      <select value={calcSeason} onChange={(e) => setCalcSeason(parseInt(e.target.value))} className="border rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
-                        {SEASONS.map((s, i) => <option key={i} value={i}>{s.name} ({s.dates})</option>)}
+                      <select value={calcSeason} onChange={(e) => setCalcSeason(e.target.value)} className="border rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                        {SEASONS.map(s => <option key={s.key} value={s.key}>{s.name} ({s.dates})</option>)}
                       </select>
                       <select value={calcRoom} onChange={(e) => setCalcRoom(e.target.value)} className="border rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
                         {ROOM_TYPES.map(rt => <option key={rt.key} value={rt.key}>{rt.label}</option>)}
@@ -3970,7 +4027,7 @@ export default function App() {
                   <div className="text-center mb-8">
                     <h1 className="text-xl font-black uppercase tracking-tight">Калькуляционная карта тарифов</h1>
                     <p className="text-sm text-slate-500 uppercase font-bold tracking-widest">
-                      {ROOM_TYPES.find(r => r.key === calcRoom)?.label} · {SEASONS[calcSeason].name} ({SEASONS[calcSeason].dates})
+                      {ROOM_TYPES.find(r => r.key === calcRoom)?.label} · {SEASONS.find(s => s.key === calcSeason)?.name} ({SEASONS.find(s => s.key === calcSeason)?.dates})
                     </p>
                   </div>
 
