@@ -198,12 +198,22 @@ export default function App() {
         setAllState(getBlankState());
         setIsSandbox(true);
         localStorage.setItem('sochi_sandbox', 'true');
+      } else {
+        // Non-demo login: if previous session was sandbox/demo, reload page for clean state
+        if (isSandbox || localStorage.getItem('sochi_sandbox') === 'true') {
+          localStorage.setItem('sochi_role', role);
+          localStorage.setItem('sochi_sandbox', 'false');
+          window.location.reload();
+          return;
+        }
+        setIsSandbox(false);
+        localStorage.setItem('sochi_sandbox', 'false');
       }
 
       try {
         localStorage.setItem('sochi_role', role);
       } catch (e) {}
-      
+
       // Set default tab based on role
       if (role === 'STAFF') setActiveTab('pricelist');
       else if (role === 'OWNER' || role === 'DEMO') setActiveTab('dashboard');
@@ -217,7 +227,10 @@ export default function App() {
     setUserRole(null);
     try {
       localStorage.removeItem('sochi_role');
+      localStorage.removeItem('sochi_sandbox');
+      localStorage.removeItem('sochi_demo_start');
     } catch (e) {}
+    setIsSandbox(false);
   };
   const [rooms, setRooms] = useState({ standard: 227, comfort: 240, lux: 0 });
   const [pkgMix, setPkgMix] = useState({ aqua_bb: 2, aqua_hb: 3, aqua_fb: 5, ultra: 40, spa: 20, med: 25, promo: 5 });
@@ -979,14 +992,14 @@ export default function App() {
   };
 
   const StatCard = ({ label, value, subValue, icon: Icon, color }: any) => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-start justify-between h-full">
+    <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-slate-200 flex items-start justify-between h-full">
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] md:text-xs font-medium text-slate-500 uppercase tracking-wider truncate">{label}</p>
-        <h3 className="text-lg md:text-2xl font-bold mt-1 text-slate-900 truncate">{value}</h3>
-        {subValue && <p className="text-[10px] mt-1 text-slate-400 line-clamp-2">{subValue}</p>}
+        <p className="text-[9px] md:text-xs font-medium text-slate-500 uppercase tracking-wider leading-tight">{label}</p>
+        <h3 className="text-base md:text-xl font-bold mt-1 text-slate-900 leading-tight break-words">{value}</h3>
+        {subValue && <p className="text-[9px] md:text-[10px] mt-1 text-slate-400 leading-tight">{subValue}</p>}
       </div>
-      <div className={`p-2 rounded-lg ${color} shrink-0 ml-3`}>
-        <Icon size={18} className="text-white md:w-5 md:h-5" />
+      <div className={`p-1.5 md:p-2 rounded-lg ${color} shrink-0 ml-2`}>
+        <Icon size={16} className="text-white" />
       </div>
     </div>
   );
@@ -1294,7 +1307,7 @@ export default function App() {
         <main className="flex-1 min-w-0 overflow-y-auto p-3 md:p-8 space-y-6 md:space-y-8">
           
           {userRole !== 'STAFF' && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
               <StatCard 
                 label="Общий Бюджет" 
                 value={formatMln(totals.totalBudget)} 
