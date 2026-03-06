@@ -1019,7 +1019,7 @@ export default function App() {
                   onClick={(e) => handleLogin(e as any, 'DEMO')}
                   className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm border border-indigo-100"
                 >
-                  <Sparkles size={16} /> Демо-доступ (3 дня)
+                  <Sparkles size={16} /> Демо-доступ (1 день)
                 </button>
                 <button 
                   onClick={() => {
