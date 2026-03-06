@@ -3299,6 +3299,108 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* ══ ВАРИАНТ C: КОНТРОЛЬ РАСЧЁТОВ ══ */}
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-5 py-4 bg-indigo-900 border-b border-indigo-700">
+                          <h2 className="text-sm font-bold text-white uppercase tracking-wider">Контроль расчётов — помесячная база</h2>
+                          <p className="text-[10px] text-indigo-300 mt-0.5">
+                            Цепочка: Номеров × Дней = Возм. RN → × Загрузка% = Продано RN → × Гостей/ном × Цена/гостя = ADR базовый → × Коэфф. сег. = ADR нетто → × RN = Выручка
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full data-table text-[10px]">
+                            <thead>
+                              <tr className="bg-slate-900 text-slate-300">
+                                <th className="text-left sticky left-0 bg-slate-900 z-10 py-2 px-3 text-[10px]" style={MW}>Месяц</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap">Дней</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap">Номеров</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap bg-slate-800">Возм. RN</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap bg-indigo-900">Загрузка %</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap bg-indigo-900">Продано RN</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap">Гостей / ном</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap bg-amber-900">ADR базовый, ₽</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap bg-slate-800">Коэфф. сег., %</th>
+                                <th className="text-center py-2 px-2 whitespace-nowrap bg-amber-900">ADR нетто, ₽</th>
+                                <th className="text-right py-2 pr-4 whitespace-nowrap bg-emerald-900">Выручка, тыс. ₽</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {MONTHS.map((m, mIdx) => {
+                                const res = totals.monthResults[mIdx];
+                                const totalRooms = (Object.values(rooms) as number[]).reduce((a: number, b: number) => a + b, 0);
+                                const possibleRN = totalRooms * m.days;
+                                const mRN = res.mRN;
+                                const occ = possibleRN > 0 ? (mRN / possibleRN) * 100 : 0;
+                                const guestsPerRoom = mRN > 0 ? res.mBedDays / mRN : 0;
+                                const baseADR = mRN > 0 ? res.mRevBase / mRN : 0;
+                                const segCoeffPct = res.mRevBase > 0 ? (res.mRev / res.mRevBase) * 100 : 100;
+                                const netADR = mRN > 0 ? res.mRev / mRN : 0;
+                                const isZero = mRN === 0;
+                                return (
+                                  <tr key={mIdx} className="border-b border-slate-100 hover:bg-slate-50">
+                                    <td className="font-bold text-slate-800 sticky left-0 bg-white z-10 py-2 px-3 border-r border-slate-100" style={MW}>{m.name}</td>
+                                    <td className="text-center py-2 text-slate-600">{m.days}</td>
+                                    <td className="text-center py-2 text-slate-600">{totalRooms}</td>
+                                    <td className="text-center py-2 font-semibold text-slate-700 bg-slate-50">{possibleRN.toLocaleString()}</td>
+                                    <td className="text-center py-2 font-bold text-indigo-700 bg-indigo-50">
+                                      {isZero ? '—' : occ.toFixed(1) + '%'}
+                                    </td>
+                                    <td className="text-center py-2 font-bold text-indigo-800 bg-indigo-50">
+                                      {isZero ? '—' : Math.round(mRN).toLocaleString()}
+                                    </td>
+                                    <td className="text-center py-2 text-slate-600">
+                                      {isZero ? '—' : guestsPerRoom.toFixed(2)}
+                                    </td>
+                                    <td className="text-center py-2 font-mono font-semibold text-amber-800 bg-amber-50">
+                                      {isZero ? '—' : Math.round(baseADR).toLocaleString()}
+                                    </td>
+                                    <td className="text-center py-2 text-slate-600 bg-slate-50">
+                                      {isZero ? '—' : segCoeffPct.toFixed(1) + '%'}
+                                    </td>
+                                    <td className="text-center py-2 font-mono font-bold text-amber-900 bg-amber-50">
+                                      {isZero ? '—' : Math.round(netADR).toLocaleString()}
+                                    </td>
+                                    <td className="text-right pr-4 py-2 font-black text-emerald-700 bg-emerald-50">
+                                      {isZero ? '—' : formatThs(res.mRev)}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              {(() => {
+                                const totalRooms = (Object.values(rooms) as number[]).reduce((a: number, b: number) => a + b, 0);
+                                const totalPossibleRN = MONTHS.reduce((a, m) => a + totalRooms * m.days, 0);
+                                const totalRN = MONTHS.reduce((a, __, i) => a + totals.monthResults[i].mRN, 0);
+                                const totalRevBase = MONTHS.reduce((a, __, i) => a + totals.monthResults[i].mRevBase, 0);
+                                const totalRev = MONTHS.reduce((a, __, i) => a + totals.monthResults[i].mRev, 0);
+                                const totalBedDays = MONTHS.reduce((a, __, i) => a + totals.monthResults[i].mBedDays, 0);
+                                const avgOcc = totalPossibleRN > 0 ? (totalRN / totalPossibleRN) * 100 : 0;
+                                const avgGuests = totalRN > 0 ? totalBedDays / totalRN : 0;
+                                const avgBaseADR = totalRN > 0 ? totalRevBase / totalRN : 0;
+                                const avgSegCoeff = totalRevBase > 0 ? (totalRev / totalRevBase) * 100 : 100;
+                                const avgNetADR = totalRN > 0 ? totalRev / totalRN : 0;
+                                return (
+                                  <tr className="bg-slate-900 text-white font-bold">
+                                    <td className="py-2 px-3 text-[9px] uppercase tracking-wider sticky left-0 bg-slate-900" style={MW}>ИТОГО ГОД</td>
+                                    <td className="text-center text-slate-400">365</td>
+                                    <td className="text-center text-slate-400">{totalRooms}</td>
+                                    <td className="text-center">{totalPossibleRN.toLocaleString()}</td>
+                                    <td className="text-center text-indigo-300">{avgOcc.toFixed(1)}%</td>
+                                    <td className="text-center text-indigo-200">{Math.round(totalRN).toLocaleString()}</td>
+                                    <td className="text-center text-slate-300">{avgGuests.toFixed(2)}</td>
+                                    <td className="text-center font-mono text-amber-300">{Math.round(avgBaseADR).toLocaleString()}</td>
+                                    <td className="text-center text-slate-300">{avgSegCoeff.toFixed(1)}%</td>
+                                    <td className="text-center font-mono text-amber-200">{Math.round(avgNetADR).toLocaleString()}</td>
+                                    <td className="text-right pr-4 text-emerald-300 text-sm">{formatThs(totalRev)}</td>
+                                  </tr>
+                                );
+                              })()}
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+
                       {/* ══ ТАБЛИЦА 1: ПЛАН ══ */}
                       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="px-5 py-4 bg-indigo-950 border-b border-indigo-800 flex items-center justify-between gap-4">
@@ -3323,26 +3425,26 @@ export default function App() {
                           <table className="w-full data-table min-w-[1100px]">
                             <thead>
                               <tr>
-                                <th className="text-left bg-slate-900 sticky left-0 z-10 text-xs py-3 px-3" style={MW}>Месяц</th>
+                                <th className="text-left bg-slate-900 sticky left-0 z-10 text-[10px] py-2 px-3" style={MW}>Месяц</th>
                                 {SEGS.map(s => (
-                                  <th key={s.key} colSpan={4} className={`text-center text-xs py-3 ${s.hdr} border-l-2 border-slate-700`}>{s.label}</th>
+                                  <th key={s.key} colSpan={4} className={`text-center text-[10px] py-2 ${s.hdr} border-l-2 border-slate-700`}>{s.label}</th>
                                 ))}
-                                <th colSpan={2} className="bg-slate-700 text-center text-xs py-3 border-l-2 border-slate-500">Итого</th>
+                                <th colSpan={2} className="bg-slate-700 text-center text-[10px] py-2 border-l-2 border-slate-500">Итого</th>
                               </tr>
                               <tr>
                                 <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
                                 {SEGS.map(s => (
                                   <React.Fragment key={s.key}>
-                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'60px'}}>Доля, %</th>
-                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 text-center py-2" style={{width:'60px'}}>RN</th>
-                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 text-center py-2" style={{width:'80px'}}>ADR нетто</th>
-                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'100px'}}>тыс. руб</th>
+                                    <th className="bg-slate-800 text-[9px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-1" style={{width:'55px'}}>Доля, %</th>
+                                    <th className="bg-slate-800 text-[9px] font-semibold text-slate-400 text-center py-1" style={{width:'55px'}}>RN</th>
+                                    <th className="bg-slate-800 text-[9px] font-semibold text-slate-400 text-center py-1" style={{width:'75px'}}>ADR нетто</th>
+                                    <th className="bg-slate-700 text-[9px] font-semibold text-slate-300 text-right py-1 pr-3" style={{width:'90px'}}>тыс. руб</th>
                                   </React.Fragment>
                                 ))}
-                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2 border-l-2 border-slate-500" style={{width:'60px'}}>
+                                <th className="bg-slate-600 text-[9px] font-semibold text-slate-200 text-center py-1 border-l-2 border-slate-500" style={{width:'55px'}}>
                                   Сумма %
                                 </th>
-                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-right py-2 pr-3" style={{width:'110px'}}>
+                                <th className="bg-slate-600 text-[9px] font-semibold text-slate-200 text-right py-1 pr-3" style={{width:'100px'}}>
                                   тыс. руб
                                 </th>
                               </tr>
@@ -3362,7 +3464,7 @@ export default function App() {
                                 const pctBg = pctOk ? 'bg-emerald-50' : pctOver ? 'bg-red-50' : 'bg-amber-50';
                                 return (
                                   <tr key={mIdx} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                                    <td className="font-bold text-slate-900 sticky left-0 bg-white z-10 text-xs py-2.5 px-3 border-r border-slate-100" style={MW}>{m.name}</td>
+                                    <td className="font-bold text-slate-900 sticky left-0 bg-white z-10 text-[10px] py-1.5 px-3 border-r border-slate-100" style={MW}>{m.name}</td>
                                     {SEGS.map((s, si) => (
                                       <React.Fragment key={s.key}>
                                         <td className="text-center border-l-2 border-slate-100 p-0">
@@ -3370,31 +3472,31 @@ export default function App() {
                                             type="number"
                                             value={row[si].planPct}
                                             onChange={(e) => handleSegmentChange(mIdx, s.key, 'plan', e.target.value)}
-                                            className={`w-full text-center text-xs font-bold ${s.txt} outline-none bg-transparent px-1 py-2`}
+                                            className={`w-full text-center text-[10px] font-bold ${s.txt} outline-none bg-transparent px-1 py-1.5`}
                                           />
                                         </td>
-                                        <td className="text-center py-2.5 text-xs text-slate-500">
+                                        <td className="text-center py-1.5 text-[10px] text-slate-500">
                                           {Math.round(row[si].segRN)}
                                         </td>
-                                        <td className="text-center py-2.5 text-xs text-slate-600 font-mono">
+                                        <td className="text-center py-1.5 text-[10px] text-slate-600 font-mono">
                                           {row[si].netADR > 0 ? Math.round(row[si].netADR).toLocaleString() : '—'}
                                         </td>
-                                        <td className={`text-right pr-3 py-2.5 ${s.row}`}>
-                                          <span className={`text-sm font-black ${s.txt}`}>{formatThs(row[si].planRev)}</span>
+                                        <td className={`text-right pr-3 py-1.5 ${s.row}`}>
+                                          <span className={`text-xs font-black ${s.txt}`}>{formatThs(row[si].planRev)}</span>
                                         </td>
                                       </React.Fragment>
                                     ))}
                                     {/* Итого: проверка % + сумма тыс. руб */}
-                                    <td className={`text-center py-2.5 border-l-2 border-slate-200 ${pctBg}`}>
-                                      <div className={`text-sm ${pctCls}`}>{sumPct.toFixed(0)}%</div>
+                                    <td className={`text-center py-1.5 border-l-2 border-slate-200 ${pctBg}`}>
+                                      <div className={`text-xs ${pctCls}`}>{sumPct.toFixed(0)}%</div>
                                       {!pctOk && (
                                         <div className="text-[9px] text-slate-500 leading-tight">
                                           {pctOver ? `перебор +${(sumPct - 100).toFixed(0)}%` : `нехватка −${(100 - sumPct).toFixed(0)}%`}
                                         </div>
                                       )}
                                     </td>
-                                    <td className="text-right pr-3 py-2.5 bg-slate-100">
-                                      <span className="text-sm font-black text-slate-800">{formatThs(rowTotal)}</span>
+                                    <td className="text-right pr-3 py-1.5 bg-slate-100">
+                                      <span className="text-xs font-black text-slate-800">{formatThs(rowTotal)}</span>
                                     </td>
                                   </tr>
                                 );
