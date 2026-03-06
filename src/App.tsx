@@ -233,6 +233,7 @@ export default function App() {
     corp: { plan: 25, fact: 0, revFact: 0 },
     ota: { plan: 15, fact: 0, revFact: 0 },
   })));
+  const [segRefreshedAt, setSegRefreshedAt] = useState<Date | null>(null);
 
   const [roomFact, setRoomFact] = useState({
     standard: { occ: 0, rev: 0 },
@@ -256,8 +257,10 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const [calcConfig, setCalcConfig] = useState({
-    fb_ultra_spa: { food: 50, b: 35, l: 35, d: 40, spa: 5, med: 5, acc: 40 },
-    ultra_med: { food: 30, b: 35, l: 35, d: 40, spa: 5, med: 25, acc: 40 },
+    // food/spa/med/acc должны суммироваться в 100% от цены
+    // b/l/d (завтрак/обед/ужин) должны суммироваться в 100% от food
+    fb_ultra_spa: { food: 50, b: 25, l: 35, d: 40, spa: 5, med: 5, acc: 40 },
+    ultra_med:    { food: 30, b: 25, l: 35, d: 40, spa: 5, med: 25, acc: 40 },
     others: { spa: 5, med: 5 }
   });
 
@@ -286,6 +289,20 @@ export default function App() {
     other: 0,            // Прочие постоянные расходы
   });
 
+  // Факт данные по месяцам (ручной ввод для план/факт анализа)
+  const [monthlyFact, setMonthlyFact] = useState(MONTHS.map(() => ({
+    occFact: 0,  // Факт загрузка %
+    rnFact: 0,   // Факт номеро-ночи
+    revFact: 0,  // Факт выручка
+  })));
+
+  // Коэффициент гостей по месяцам (редактируемый, влияет на койко-дни)
+  const [monthlyGuestCoeff, setMonthlyGuestCoeff] = useState(() =>
+    MONTHS.map(m =>
+      parseFloat((m.distribution.reduce((acc, dist) => acc + SEASONS[dist.sIdx].defaultGuests * dist.days, 0) / m.days).toFixed(2))
+    )
+  );
+
   const [promoBasePkg, setPromoBasePkg] = useState('ultra');
   const [promoDiscount, setPromoDiscount] = useState(10);
 
@@ -311,7 +328,7 @@ export default function App() {
   const getAllState = () => ({
     rooms, pkgMix, prices, seasons, seasonData, segmentData,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
-    globalPriceAdj, globalOccAdj, expenseModel
+    globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff
   });
 
   const setAllState = (data: any) => {
@@ -329,6 +346,8 @@ export default function App() {
     if (data.globalPriceAdj !== undefined) setGlobalPriceAdj(data.globalPriceAdj);
     if (data.globalOccAdj !== undefined) setGlobalOccAdj(data.globalOccAdj);
     if (data.expenseModel) setExpenseModel(data.expenseModel);
+    if (data.monthlyFact) setMonthlyFact(data.monthlyFact);
+    if (data.monthlyGuestCoeff) setMonthlyGuestCoeff(data.monthlyGuestCoeff);
   };
 
   // Load shared state on mount
@@ -371,7 +390,7 @@ export default function App() {
   }, [
     rooms, pkgMix, prices, seasons, seasonData, segmentData,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
-    globalPriceAdj, globalOccAdj, isSandbox, userRole, expenseModel
+    globalPriceAdj, globalOccAdj, isSandbox, userRole, expenseModel, monthlyFact, monthlyGuestCoeff
   ]);
 
   const toggleSandbox = () => {
@@ -478,8 +497,8 @@ export default function App() {
           mRN += rn;
           mRNFact += rnFact;
           
-          const bd = rn * data.guests;
-          const bdFact = rnFact * data.guests;
+          const bd = rn * monthlyGuestCoeff[mIdx];
+          const bdFact = rnFact * monthlyGuestCoeff[mIdx];
           
           mBedDays += bd;
           mBedDaysFact += bdFact;
@@ -647,9 +666,10 @@ export default function App() {
       totalInternalMedRev, totalFullMedRev, totalRoomRev, totalBudget,
       totalADR, totalRevPAR, totalTRevPAR
     };
-  }, [rooms, pkgMix, prices, seasonData, roomMonthlyData, segmentData, costConfig, calcConfig, medAddonConfig, seasons, expenseModel]);
+  }, [rooms, pkgMix, prices, seasonData, roomMonthlyData, segmentData, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff]);
 
   const formatMln = (val: number) => (val / 1000000).toFixed(1) + ' млн ₽';
+  const formatThs = (val: number) => (val / 1000).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handlePriceChange = (rtKey: string, pkKey: string, sIdx: number, val: string) => {
     const newVal = parseInt(val) || 0;
@@ -910,7 +930,7 @@ export default function App() {
       security: 'Охрана и безопасность', it: 'IT и телекоммуникации',
       laundry: 'Прачечная (внешняя)', other: 'Прочие постоянные',
     };
-    const expenseRows: any[][] = Object.entries(expenseModel)
+    const expenseRows: any[][] = (Object.entries(expenseModel) as [string, number][])
       .filter(([, v]) => v > 0)
       .map(([k, v]) => [`- в т.ч. ${expenseLabels[k] || k}`, ...monthNames.map(() => Math.round(v)), Math.round(v * 12)]);
 
@@ -1461,19 +1481,19 @@ export default function App() {
                         <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
                           <span className="text-xs text-slate-500 font-bold uppercase">Итого постоянных (без ФОТ) / мес:</span>
                           <span className="text-lg font-black text-slate-900">
-                            {(Object.values(expenseModel).reduce((a, b) => a + b, 0) / 1000000).toFixed(2)} млн ₽
+                            {((Object.values(expenseModel) as number[]).reduce((a, b) => a + b, 0) / 1000000).toFixed(2)} млн ₽
                           </span>
                         </div>
                         <div className="mt-2 flex justify-between items-center">
                           <span className="text-xs text-slate-500 font-bold uppercase">Итого всех постоянных (с ФОТ) / мес:</span>
                           <span className="text-lg font-black text-indigo-700">
-                            {((Object.values(expenseModel).reduce((a, b) => a + b, 0) + costConfig.staffingMonthly) / 1000000).toFixed(2)} млн ₽
+                            {(((Object.values(expenseModel) as number[]).reduce((a, b) => a + b, 0) + costConfig.staffingMonthly) / 1000000).toFixed(2)} млн ₽
                           </span>
                         </div>
                         <div className="mt-2 flex justify-between items-center">
                           <span className="text-xs text-slate-500 font-bold uppercase">Итого всех постоянных / год:</span>
                           <span className="text-xl font-black text-indigo-900">
-                            {(((Object.values(expenseModel).reduce((a, b) => a + b, 0) + costConfig.staffingMonthly) * 12) / 1000000).toFixed(1)} млн ₽
+                            {((((Object.values(expenseModel) as number[]).reduce((a, b) => a + b, 0) + costConfig.staffingMonthly) * 12) / 1000000).toFixed(1)} млн ₽
                           </span>
                         </div>
                       </div>
@@ -1783,7 +1803,7 @@ export default function App() {
                           {ROOM_TYPES.map(rt => {
                             const planRev = totals.byRoomPlan[rt.key as keyof typeof totals.byRoomPlan];
                             const fact = roomFact[rt.key as keyof typeof roomFact];
-                            const avgOccPlan = SEASONS.reduce((acc, s, i) => acc + (seasonData[i].occPlan * s.days), 0) / SEASONS.reduce((acc, s) => acc + s.days, 0);
+                            const avgOccPlan = MONTHS.reduce((acc, m, mIdx) => acc + roomMonthlyData[mIdx][rt.key].plan * m.days, 0) / MONTHS.reduce((a, b) => a + b.days, 0);
                             const variance = planRev > 0 ? ((fact.rev - planRev) / planRev) * 100 : 0;
                             return (
                               <tr key={rt.key}>
@@ -1875,6 +1895,9 @@ export default function App() {
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                  </div>
+                  </div>
                   </div>
                 </section>
 
@@ -2513,13 +2536,13 @@ export default function App() {
                             const planRev = totals.byRoomPlan[rt.key as keyof typeof totals.byRoomPlan];
                             const fact = roomFact[rt.key as keyof typeof roomFact];
                             
-                            // Расчет плановых номеро-ночей для конкретной категории
-                            const rtRN = seasons.reduce((acc, s, i) => {
-                               const roomCount = rooms[rt.key as keyof typeof rooms] || 0;
-                               return acc + (roomCount * s.days * (seasonData[i].occPlan / 100));
+                            // Расчет плановых номеро-ночей по данным roomMonthlyData (актуальный источник)
+                            const roomCount = rooms[rt.key as keyof typeof rooms] || 0;
+                            const rtRN = MONTHS.reduce((acc, m, mIdx) => {
+                              return acc + (roomCount * m.days * (roomMonthlyData[mIdx][rt.key].plan / 100));
                             }, 0);
 
-                            const avgOccPlan = seasons.reduce((acc, s, i) => acc + (seasonData[i].occPlan * s.days), 0) / seasons.reduce((acc, s) => acc + s.days, 0);
+                            const avgOccPlan = MONTHS.reduce((acc, m, mIdx) => acc + roomMonthlyData[mIdx][rt.key].plan * m.days, 0) / MONTHS.reduce((a, b) => a + b.days, 0);
                             
                             return (
                               <tr key={rt.key} className="border-b border-slate-50">
@@ -2805,7 +2828,7 @@ export default function App() {
                       <tr>
                         <th rowSpan={2} className="w-32">Месяц</th>
                         {ROOM_TYPES.map(rt => (
-                          <th key={rt.key} colSpan={2} className="text-center border-l border-slate-700">{rt.label}</th>
+                          <th key={rt.key} colSpan={3} className="text-center border-l border-slate-700">{rt.label}</th>
                         ))}
                       </tr>
                       <tr>
@@ -2813,6 +2836,7 @@ export default function App() {
                           <React.Fragment key={rt.key}>
                             <th className="text-[8px] bg-slate-800 border-l border-slate-700 text-center">План %</th>
                             <th className="text-[8px] bg-slate-700 text-center">Факт %</th>
+                            <th className="text-[8px] bg-slate-600 text-center">Откл, %</th>
                           </React.Fragment>
                         ))}
                       </tr>
@@ -2832,13 +2856,23 @@ export default function App() {
                                 />
                               </td>
                               <td className="text-center bg-slate-50">
-                                <input 
-                                  type="number" 
-                                  value={roomMonthlyData[mIdx][rt.key].fact || ''} 
-                                  placeholder="0" 
-                                  onChange={(e) => handleRoomMonthlyChange(mIdx, rt.key, 'fact', e.target.value)} 
-                                  className="w-12 text-center text-xs font-bold text-slate-400 outline-none bg-transparent" 
+                                <input
+                                  type="number"
+                                  value={roomMonthlyData[mIdx][rt.key].fact || ''}
+                                  placeholder="0"
+                                  onChange={(e) => handleRoomMonthlyChange(mIdx, rt.key, 'fact', e.target.value)}
+                                  className="w-12 text-center text-xs font-bold text-slate-400 outline-none bg-transparent"
                                 />
+                              </td>
+                              <td className="text-center bg-slate-100 text-xs font-bold">
+                                {(() => {
+                                  const fact = roomMonthlyData[mIdx][rt.key].fact || 0;
+                                  const plan = roomMonthlyData[mIdx][rt.key].plan;
+                                  if (fact === 0) return <span className="text-slate-300">—</span>;
+                                  const diff = fact - plan;
+                                  const cls = diff >= 0 ? 'text-emerald-600' : 'text-red-500';
+                                  return <span className={cls}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>;
+                                })()}
                               </td>
                             </React.Fragment>
                           ))}
@@ -2853,6 +2887,13 @@ export default function App() {
                             <React.Fragment key={rt.key}>
                               <td className="text-center border-l border-slate-700 text-indigo-300">{avgPlan.toFixed(1)}%</td>
                               <td className="text-center text-slate-400">{avgFact > 0 ? avgFact.toFixed(1) + '%' : '—'}</td>
+                              <td className="text-center">
+                                {avgFact > 0 ? (
+                                  <span className={(avgFact - avgPlan) >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                                    {(avgFact - avgPlan) > 0 ? '+' : ''}{(avgFact - avgPlan).toFixed(1)}
+                                  </span>
+                                ) : <span className="text-slate-600">—</span>}
+                              </td>
                             </React.Fragment>
                           );
                         })}
@@ -2871,238 +2912,537 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                {/* Прогноз по месяцам */}
+                {/* Прогноз по месяцам — план/факт */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Прогноз по месяцам</h2>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Показатели пересчитаны с учётом цен прейскуранта внутри каждого месяца. Загрузка управляется в разделе «Загрузка».</p>
-                    </div>
+                  <div className="p-4 bg-slate-50 border-b border-slate-200">
+                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Прогноз по месяцам — план / факт</h2>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Коэффициент гостей и загрузка плана редактируются. Факт загрузки, номеро-ночи и доходы вводите вручную.</p>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full data-table min-w-[900px]">
+                    <table className="w-full data-table min-w-[1800px] text-[11px]">
                       <thead>
                         <tr>
-                          <th className="text-left">Месяц</th>
-                          <th>Дней</th>
-                          <th>Загрузка план %</th>
-                          <th>Загрузка факт %</th>
-                          <th>Номеро-ночи</th>
-                          <th className="bg-indigo-900">Койко-дни</th>
-                          <th>ADR, ₽</th>
-                          <th>Выручка</th>
-                          <th>Расходы</th>
-                          <th className="bg-emerald-900">GOP</th>
-                          <th>GOP %</th>
+                          <th rowSpan={2} className="text-left bg-slate-900 sticky left-0 z-10 min-w-[80px]">Месяц</th>
+                          <th rowSpan={2} className="bg-slate-800">Дни</th>
+                          <th rowSpan={2} className="bg-slate-800">Номерная<br/>ёмкость</th>
+                          <th colSpan={7} className="text-center bg-indigo-900 border-l-2 border-indigo-700">ПЛАН</th>
+                          <th colSpan={8} className="text-center bg-emerald-900 border-l-2 border-emerald-700">ФАКТ</th>
+                        </tr>
+                        <tr>
+                          {/* ПЛАН */}
+                          <th className="bg-indigo-950 border-l-2 border-indigo-700">Коэф.<br/>гостей</th>
+                          <th className="bg-indigo-950">Загрузка %</th>
+                          <th className="bg-indigo-950">Номеро-<br/>ночи</th>
+                          <th className="bg-indigo-950">Койко-<br/>дни</th>
+                          <th className="bg-indigo-950">Доход, ₽</th>
+                          <th className="bg-indigo-950">Ср. цена<br/>номера</th>
+                          <th className="bg-indigo-950">Ср. стоим.<br/>к-дня</th>
+                          {/* ФАКТ */}
+                          <th className="bg-emerald-950 border-l-2 border-emerald-700">Загрузка %<br/><span className="text-[9px] font-normal opacity-60">ввод</span></th>
+                          <th className="bg-emerald-950">Откл., %</th>
+                          <th className="bg-emerald-950">Номеро-<br/>ночи<br/><span className="text-[9px] font-normal opacity-60">ввод</span></th>
+                          <th className="bg-emerald-950">Откл., %</th>
+                          <th className="bg-emerald-950">Доходы, ₽<br/><span className="text-[9px] font-normal opacity-60">ввод</span></th>
+                          <th className="bg-emerald-950">Откл., %</th>
+                          <th className="bg-emerald-950">Ср. цена<br/>номера</th>
+                          <th className="bg-emerald-950">Откл., %</th>
                         </tr>
                       </thead>
                       <tbody>
                         {MONTHS.map((m, mIdx) => {
                           const r = totals.monthResults[mIdx];
                           const totalRooms = (Object.values(rooms) as number[]).reduce((a, b) => a + b, 0);
-                          // Weighted average occ from roomMonthlyData (same source as calculation)
+                          const capacity = totalRooms * m.days;
+                          const guestCoeff = monthlyGuestCoeff[mIdx];
                           const avgPlanOcc = ROOM_TYPES.reduce((acc, rt) => {
                             const rc = rooms[rt.key as keyof typeof rooms] || 0;
                             return acc + roomMonthlyData[mIdx][rt.key].plan * rc;
                           }, 0) / (totalRooms || 1);
-                          const avgFactOcc = ROOM_TYPES.reduce((acc, rt) => {
-                            const rc = rooms[rt.key as keyof typeof rooms] || 0;
-                            return acc + (roomMonthlyData[mIdx][rt.key].fact || 0) * rc;
-                          }, 0) / (totalRooms || 1);
-                          const gopColor = r.mGOPMargin >= 30 ? 'text-emerald-600' : r.mGOPMargin >= 15 ? 'text-amber-600' : 'text-red-600';
+                          const planADR = r.mRN > 0 ? r.mRev / r.mRN : 0;
+                          const planPricePerBD = r.mBedDays > 0 ? r.mRev / r.mBedDays : 0;
+
+                          const fact = monthlyFact[mIdx];
+                          const factADR = fact.rnFact > 0 ? fact.revFact / fact.rnFact : 0;
+                          const occVar = avgPlanOcc > 0 && fact.occFact > 0 ? ((fact.occFact - avgPlanOcc) / avgPlanOcc) * 100 : null;
+                          const rnVar = r.mRN > 0 && fact.rnFact > 0 ? ((fact.rnFact - r.mRN) / r.mRN) * 100 : null;
+                          const revVar = r.mRev > 0 && fact.revFact > 0 ? ((fact.revFact - r.mRev) / r.mRev) * 100 : null;
+                          const adrVar = planADR > 0 && factADR > 0 ? ((factADR - planADR) / planADR) * 100 : null;
+
+                          const varColor = (v: number | null) => v === null ? 'text-slate-300' : v >= 0 ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold';
+                          const varText = (v: number | null) => v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+
                           return (
                             <tr key={mIdx} className="hover:bg-slate-50 transition-colors">
-                              <td className="font-bold text-slate-900">{m.name}</td>
-                              <td className="text-center font-mono text-slate-500">{m.days}</td>
-                              <td className="text-center font-bold text-indigo-600">{avgPlanOcc.toFixed(1)}%</td>
-                              <td className="text-center text-slate-400">{avgFactOcc > 0 ? avgFactOcc.toFixed(1) + '%' : '—'}</td>
+                              <td className="font-bold text-slate-900 sticky left-0 bg-white z-10">{m.name}</td>
+                              <td className="text-center text-slate-500">{m.days}</td>
+                              <td className="text-center text-slate-500 font-mono">{capacity.toLocaleString()}</td>
+                              {/* ПЛАН — редактируемые */}
+                              <td className="text-center border-l-2 border-indigo-100 p-0">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={guestCoeff}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setMonthlyGuestCoeff(prev => prev.map((v, i) => i === mIdx ? val : v));
+                                  }}
+                                  className="w-full text-center text-xs font-bold text-indigo-700 outline-none bg-transparent px-2 py-1"
+                                />
+                              </td>
+                              <td className="text-center p-0">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={avgPlanOcc.toFixed(1)}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setRoomMonthlyData(prev => prev.map((row, i) => {
+                                      if (i !== mIdx) return row;
+                                      const updated = { ...row };
+                                      ROOM_TYPES.forEach(rt => {
+                                        updated[rt.key] = { ...updated[rt.key], plan: val };
+                                      });
+                                      return updated;
+                                    }));
+                                  }}
+                                  className="w-full text-center text-xs font-bold text-indigo-700 outline-none bg-transparent px-2 py-1"
+                                />
+                              </td>
+                              {/* ПЛАН — расчётные */}
                               <td className="text-right font-mono">{Math.round(r.mRN).toLocaleString()}</td>
-                              <td className="text-right font-mono font-bold text-indigo-600">{Math.round(r.mBedDays).toLocaleString()}</td>
-                              <td className="text-right font-mono">{Math.round(r.mADR).toLocaleString()}</td>
-                              <td className="text-right font-bold text-slate-900">{formatMln(r.mRev + r.mMedAddonRev)}</td>
-                              <td className="text-right text-red-700">{formatMln(r.mTotalCosts)}</td>
-                              <td className={`text-right font-bold ${gopColor}`}>{formatMln(r.mGOP)}</td>
-                              <td className={`text-center font-bold ${gopColor}`}>{r.mGOPMargin.toFixed(1)}%</td>
+                              <td className="text-right font-mono text-indigo-600">{Math.round(r.mBedDays).toLocaleString()}</td>
+                              <td className="text-right font-bold text-slate-800">{formatMln(r.mRev)}</td>
+                              <td className="text-right font-mono">{Math.round(planADR).toLocaleString()}</td>
+                              <td className="text-right font-mono">{Math.round(planPricePerBD).toLocaleString()}</td>
+                              {/* ФАКТ — ввод */}
+                              <td className="text-center border-l-2 border-emerald-100 p-0">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={fact.occFact || ''}
+                                  placeholder="0"
+                                  onChange={(e) => setMonthlyFact(prev => prev.map((f, i) => i === mIdx ? { ...f, occFact: parseFloat(e.target.value) || 0 } : f))}
+                                  className="w-full text-center text-xs font-bold text-emerald-700 outline-none bg-transparent px-2 py-1"
+                                />
+                              </td>
+                              <td className={`text-center ${varColor(occVar)}`}>{varText(occVar)}</td>
+                              <td className="text-center p-0">
+                                <input
+                                  type="number"
+                                  value={fact.rnFact || ''}
+                                  placeholder="0"
+                                  onChange={(e) => setMonthlyFact(prev => prev.map((f, i) => i === mIdx ? { ...f, rnFact: parseFloat(e.target.value) || 0 } : f))}
+                                  className="w-full text-right text-xs font-bold text-emerald-700 outline-none bg-transparent px-2 py-1"
+                                />
+                              </td>
+                              <td className={`text-center ${varColor(rnVar)}`}>{varText(rnVar)}</td>
+                              <td className="text-center p-0">
+                                <input
+                                  type="number"
+                                  value={fact.revFact || ''}
+                                  placeholder="0"
+                                  onChange={(e) => setMonthlyFact(prev => prev.map((f, i) => i === mIdx ? { ...f, revFact: parseFloat(e.target.value) || 0 } : f))}
+                                  className="w-full text-right text-xs font-bold text-emerald-700 outline-none bg-transparent px-2 py-1"
+                                />
+                              </td>
+                              <td className={`text-center ${varColor(revVar)}`}>{varText(revVar)}</td>
+                              <td className="text-right font-mono text-emerald-700">{factADR > 0 ? Math.round(factADR).toLocaleString() : '—'}</td>
+                              <td className={`text-center ${varColor(adrVar)}`}>{varText(adrVar)}</td>
                             </tr>
                           );
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-slate-900 text-white font-bold">
-                          <td className="p-2 uppercase text-[10px]">ИТОГО ГОД</td>
-                          <td className="text-center">{MONTHS.reduce((a, b) => a + b.days, 0)}</td>
-                          <td className="text-center text-indigo-300">{totals.totalAvgOcc.toFixed(1)}%</td>
-                          <td className="text-center text-slate-400">—</td>
-                          <td className="text-right font-mono">{Math.round(totals.totalRN).toLocaleString()}</td>
-                          <td className="text-right font-mono text-indigo-300">{Math.round(totals.totalBedDays).toLocaleString()}</td>
-                          <td className="text-right font-mono">{Math.round(totals.totalADR).toLocaleString()}</td>
-                          <td className="text-right text-white">{formatMln(totals.totalBudget)}</td>
-                          <td className="text-right text-red-300">{formatMln(totals.totalCosts)}</td>
+                        {(() => {
+                          const totalRooms = (Object.values(rooms) as number[]).reduce((a, b) => a + b, 0);
+                          const totalCapacity = totalRooms * MONTHS.reduce((a, b) => a + b.days, 0);
+                          const avgGuestCoeffYear = MONTHS.reduce((acc, m, mIdx) => acc + monthlyGuestCoeff[mIdx] * m.days, 0) / MONTHS.reduce((a, b) => a + b.days, 0);
+                          const totalFactRN = monthlyFact.reduce((a, b) => a + b.rnFact, 0);
+                          const totalFactRev = monthlyFact.reduce((a, b) => a + b.revFact, 0);
+                          const totalFactOcc = monthlyFact.reduce((a, b) => a + b.occFact, 0) / MONTHS.length;
+                          const totalFactADR = totalFactRN > 0 ? totalFactRev / totalFactRN : 0;
+                          const planADR = totals.totalRN > 0 ? totals.totalRev / totals.totalRN : 0;
+                          const planPricePerBD = totals.totalBedDays > 0 ? totals.totalRev / totals.totalBedDays : 0;
+                          const occVar = totals.totalAvgOcc > 0 && totalFactOcc > 0 ? ((totalFactOcc - totals.totalAvgOcc) / totals.totalAvgOcc) * 100 : null;
+                          const rnVar = totals.totalRN > 0 && totalFactRN > 0 ? ((totalFactRN - totals.totalRN) / totals.totalRN) * 100 : null;
+                          const revVar = totals.totalRev > 0 && totalFactRev > 0 ? ((totalFactRev - totals.totalRev) / totals.totalRev) * 100 : null;
+                          const adrVar = planADR > 0 && totalFactADR > 0 ? ((totalFactADR - planADR) / planADR) * 100 : null;
+                          const varC = (v: number | null) => v === null ? 'text-slate-500' : v >= 0 ? 'text-emerald-300' : 'text-red-300';
+                          const varT = (v: number | null) => v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+                          return (
+                            <tr className="bg-slate-900 text-white font-bold text-[11px]">
+                              <td className="p-2 uppercase text-[9px] sticky left-0 bg-slate-900">ИТОГО ГОД</td>
+                              <td className="text-center">{MONTHS.reduce((a, b) => a + b.days, 0)}</td>
+                              <td className="text-center font-mono">{totalCapacity.toLocaleString()}</td>
+                              <td className="text-center text-indigo-300 border-l-2 border-indigo-800">{avgGuestCoeffYear.toFixed(2)}</td>
+                              <td className="text-center text-indigo-300">{totals.totalAvgOcc.toFixed(1)}%</td>
+                              <td className="text-right font-mono">{Math.round(totals.totalRN).toLocaleString()}</td>
+                              <td className="text-right font-mono text-indigo-300">{Math.round(totals.totalBedDays).toLocaleString()}</td>
+                              <td className="text-right">{formatMln(totals.totalRev)}</td>
+                              <td className="text-right font-mono">{Math.round(planADR).toLocaleString()}</td>
+                              <td className="text-right font-mono">{Math.round(planPricePerBD).toLocaleString()}</td>
+                              <td className={`text-center border-l-2 border-emerald-800 ${totalFactOcc > 0 ? 'text-emerald-300' : 'text-slate-500'}`}>{totalFactOcc > 0 ? totalFactOcc.toFixed(1) + '%' : '—'}</td>
+                              <td className={`text-center ${varC(occVar)}`}>{varT(occVar)}</td>
+                              <td className={`text-right font-mono ${totalFactRN > 0 ? 'text-emerald-300' : 'text-slate-500'}`}>{totalFactRN > 0 ? Math.round(totalFactRN).toLocaleString() : '—'}</td>
+                              <td className={`text-center ${varC(rnVar)}`}>{varT(rnVar)}</td>
+                              <td className={`text-right ${totalFactRev > 0 ? 'text-emerald-300' : 'text-slate-500'}`}>{totalFactRev > 0 ? formatMln(totalFactRev) : '—'}</td>
+                              <td className={`text-center ${varC(revVar)}`}>{varT(revVar)}</td>
+                              <td className={`text-right font-mono ${totalFactADR > 0 ? 'text-emerald-300' : 'text-slate-500'}`}>{totalFactADR > 0 ? Math.round(totalFactADR).toLocaleString() : '—'}</td>
+                              <td className={`text-center ${varC(adrVar)}`}>{varT(adrVar)}</td>
+                            </tr>
+                          );
+                        })()}
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Справочник расчётов — P&L по месяцам */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="p-4 bg-slate-50 border-b border-slate-200">
+                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Справочник расчётов — P&amp;L по месяцам</h2>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Расходы, GOP и рентабельность — расчётные показатели на основе модели.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full data-table min-w-[1000px] text-[11px]">
+                      <thead>
+                        <tr>
+                          <th className="text-left">Месяц</th>
+                          <th>Выручка (номера)</th>
+                          <th>Доход МЦ</th>
+                          <th>Итого выручка</th>
+                          <th className="bg-red-900">Food Cost</th>
+                          <th className="bg-red-900">Комиссии OTA</th>
+                          <th className="bg-red-900">Прочие перем.</th>
+                          <th className="bg-red-900">Пост. расходы</th>
+                          <th className="bg-red-900">Итого расходы</th>
+                          <th className="bg-emerald-900">GOP</th>
+                          <th className="bg-emerald-900">GOP %</th>
+                          <th>Точка б/у %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((m, mIdx) => {
+                          const r = totals.monthResults[mIdx];
+                          const totalRev = r.mRev + r.mMedAddonRev;
+                          const otherVC = r.mRev * (costConfig.otherVCPct / 100);
+                          const fixedCosts = r.mTotalCosts - r.mFoodCost - r.mComm - otherVC;
+                          const gopColor = r.mGOPMargin >= 30 ? 'text-emerald-600 font-bold' : r.mGOPMargin >= 15 ? 'text-amber-600 font-bold' : 'text-red-600 font-bold';
+                          return (
+                            <tr key={mIdx} className="hover:bg-slate-50 transition-colors">
+                              <td className="font-bold text-slate-900">{m.name}</td>
+                              <td className="text-right">{formatMln(r.mRev)}</td>
+                              <td className="text-right text-orange-600">{formatMln(r.mMedAddonRev)}</td>
+                              <td className="text-right font-bold">{formatMln(totalRev)}</td>
+                              <td className="text-right text-red-700">{formatMln(r.mFoodCost)}</td>
+                              <td className="text-right text-red-700">{formatMln(r.mComm)}</td>
+                              <td className="text-right text-red-700">{formatMln(otherVC)}</td>
+                              <td className="text-right text-red-700">{formatMln(fixedCosts)}</td>
+                              <td className="text-right text-red-800 font-bold">{formatMln(r.mTotalCosts)}</td>
+                              <td className={`text-right ${gopColor}`}>{formatMln(r.mGOP)}</td>
+                              <td className={`text-center ${gopColor}`}>{r.mGOPMargin.toFixed(1)}%</td>
+                              <td className="text-center text-slate-500">{r.mBreakEvenOcc.toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-900 text-white font-bold text-[11px]">
+                          <td className="p-2 uppercase text-[9px]">ИТОГО ГОД</td>
+                          <td className="text-right">{formatMln(totals.totalRev)}</td>
+                          <td className="text-right text-orange-300">{formatMln(totals.totalMedAddonRev)}</td>
+                          <td className="text-right">{formatMln(totals.totalBudget)}</td>
+                          <td className="text-right text-red-300">{formatMln(totals.monthResults.reduce((a, b) => a + b.mFoodCost, 0))}</td>
+                          <td className="text-right text-red-300">{formatMln(totals.monthResults.reduce((a, b) => a + b.mComm, 0))}</td>
+                          <td className="text-right text-red-300">{formatMln(totals.monthResults.reduce((a, b) => a + b.mRev * (costConfig.otherVCPct / 100), 0))}</td>
+                          <td className="text-right text-red-300">{formatMln(totals.totalCosts - totals.monthResults.reduce((a, b) => a + b.mFoodCost + b.mComm + b.mRev * (costConfig.otherVCPct / 100), 0))}</td>
+                          <td className="text-right text-red-200">{formatMln(totals.totalCosts)}</td>
                           <td className="text-right text-emerald-300">{formatMln(totals.totalGOP)}</td>
                           <td className="text-center text-emerald-300">{totals.totalGOPMargin.toFixed(1)}%</td>
+                          <td className="text-center text-slate-400">—</td>
                         </tr>
                       </tfoot>
                     </table>
                   </div>
                 </div>
 
-                {/* Справочник ценовых периодов прейскуранта */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="p-4 bg-slate-50 border-b border-slate-200">
-                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Справочник ценовых периодов прейскуранта</h2>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Периоды определяют, какие цены из прейскуранта применяются к датам внутри каждого месяца. Изменение коэффициента гостей влияет на расчёт койко-дней.</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full data-table">
-                      <thead>
-                        <tr>
-                          <th className="text-left">Период / Даты</th>
-                          <th>Дней</th>
-                          <th>Низкий сезон</th>
-                          <th>Коэф. гостей</th>
-                          <th>Номеро-ночи (расчёт)</th>
-                          <th className="bg-indigo-900">Койко-дни (расчёт)</th>
-                          <th>Выручка периода</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {seasons.map((s, i) => {
-                          const res = totals.seasonResults[i];
-                          return (
-                            <tr key={i} className="hover:bg-slate-50 transition-colors">
-                              <td className="font-medium">
-                                <input
-                                  type="text"
-                                  value={s.name}
-                                  onChange={(e) => handleSeasonPeriodChange(i, 'name', e.target.value)}
-                                  className="w-full font-bold text-slate-900 outline-none bg-transparent mb-1"
-                                />
-                                <input
-                                  type="text"
-                                  value={s.dates}
-                                  onChange={(e) => handleSeasonPeriodChange(i, 'dates', e.target.value)}
-                                  className="w-full text-[10px] text-slate-400 font-normal outline-none bg-transparent"
-                                />
-                              </td>
-                              <td className="text-center font-mono">
-                                <input
-                                  type="number"
-                                  value={s.days}
-                                  onChange={(e) => handleSeasonPeriodChange(i, 'days', e.target.value)}
-                                  className="w-12 text-center font-mono outline-none bg-transparent border-b border-slate-100 focus:border-indigo-300"
-                                />
-                              </td>
-                              <td className="text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={!!s.isLow}
-                                  onChange={(e) => handleSeasonPeriodChange(i, 'isLow', e.target.checked)}
-                                  className="w-4 h-4 accent-indigo-600"
-                                />
-                              </td>
-                              <td className="text-center">
-                                <input
-                                  type="number"
-                                  step="0.1"
-                                  value={seasonData[i].guests}
-                                  onChange={(e) => handleSeasonChange(i, 'guests', e.target.value)}
-                                  className="w-16 input-minimal text-center"
-                                />
-                              </td>
-                              <td className="text-right font-mono text-slate-500">{Math.round(res.sRN).toLocaleString()}</td>
-                              <td className="text-right font-mono font-bold text-indigo-600">{Math.round(res.sBedDays).toLocaleString()}</td>
-                              <td className="text-right font-bold text-slate-900">{formatMln(res.sRev)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </motion.div>
             )}
 
             {activeTab === 'segments' && (
-              <motion.div 
+              <motion.div
                 key="segments"
-                initial={{ opacity: 0, y: 10 }} 
-                animate={{ opacity: 1, y: 0 }} 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+                className="space-y-6"
               >
-                <div className="p-4 bg-slate-50 border-b border-slate-200">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">План / Факт по сегментам продаж</h2>
-                  <p className="text-[10px] text-slate-500 mt-1">Распределение доходов по каналам продаж (в % и млн ₽)</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full data-table min-w-[1200px]">
-                    <thead>
-                      <tr>
-                        <th rowSpan={2} className="w-32 bg-slate-900 sticky left-0 z-10">Месяц</th>
-                        <th colSpan={4} className="text-center border-l border-slate-700 bg-blue-900">Прямые продажи</th>
-                        <th colSpan={4} className="text-center border-l border-slate-700 bg-indigo-900">Туроператоры (ТО)</th>
-                        <th colSpan={4} className="text-center border-l border-slate-700 bg-emerald-900">ФСС / Соцстрах</th>
-                        <th colSpan={4} className="text-center border-l border-slate-700 bg-purple-900">Корпораты / MICE</th>
-                        <th colSpan={4} className="text-center border-l border-slate-700 bg-slate-800">OTA (Бронирование)</th>
-                      </tr>
-                      <tr>
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-700 text-center">План %</th>
-                        <th className="text-[8px] bg-slate-700 text-center">Факт %</th>
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-600 text-center">План ₽</th>
-                        <th className="text-[8px] bg-slate-600 text-center">Факт ₽</th>
-                        
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-700 text-center">План %</th>
-                        <th className="text-[8px] bg-slate-700 text-center">Факт %</th>
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-600 text-center">План ₽</th>
-                        <th className="text-[8px] bg-slate-600 text-center">Факт ₽</th>
-                        
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-700 text-center">План %</th>
-                        <th className="text-[8px] bg-slate-700 text-center">Факт %</th>
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-600 text-center">План ₽</th>
-                        <th className="text-[8px] bg-slate-600 text-center">Факт ₽</th>
-                        
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-700 text-center">План %</th>
-                        <th className="text-[8px] bg-slate-700 text-center">Факт %</th>
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-600 text-center">План ₽</th>
-                        <th className="text-[8px] bg-slate-600 text-center">Факт ₽</th>
-                        
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-700 text-center">План %</th>
-                        <th className="text-[8px] bg-slate-700 text-center">Факт %</th>
-                        <th className="text-[8px] bg-slate-800 border-l border-slate-600 text-center">План ₽</th>
-                        <th className="text-[8px] bg-slate-600 text-center">Факт ₽</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MONTHS.map((m, mIdx) => (
-                        <tr key={mIdx} className="hover:bg-slate-50 transition-colors">
-                          <td className="font-bold bg-slate-50 sticky left-0 z-10 border-r border-slate-200">{m.name}</td>
-                          {['direct', 'to', 'fss', 'corp', 'ota'].map(seg => {
-                            const mRev = totals.monthResults[mIdx].mRev;
-                            const planPct = segmentData[mIdx][seg as keyof typeof segmentData[0]].plan;
-                            const planRev = mRev * (planPct / 100);
-                            const fact = segmentData[mIdx][seg as keyof typeof segmentData[0]];
-                            return (
-                              <React.Fragment key={seg}>
-                                <td className="text-center border-l border-slate-100">
-                                  <input type="number" value={planPct} onChange={(e) => handleSegmentChange(mIdx, seg, 'plan', e.target.value)} className="w-10 text-center text-xs font-bold text-indigo-600 outline-none bg-transparent" />
-                                </td>
-                                <td className="text-center bg-slate-50">
-                                  <input type="number" value={fact.fact || ''} placeholder="0" onChange={(e) => handleSegmentChange(mIdx, seg, 'fact', e.target.value)} className="w-10 text-center text-xs font-bold text-slate-400 outline-none bg-transparent" />
-                                </td>
-                                <td className="text-center bg-indigo-50 border-l border-slate-200">
-                                  <span className="text-[9px] font-mono text-indigo-400">{(planRev / 1000000).toFixed(1)}</span>
-                                </td>
-                                <td className="text-center bg-emerald-50">
-                                  <input type="number" value={fact.revFact || ''} placeholder="0" onChange={(e) => handleSegmentChange(mIdx, seg, 'revFact', e.target.value)} className="w-14 text-center text-[10px] font-bold text-emerald-600 outline-none bg-transparent" />
-                                </td>
-                              </React.Fragment>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {(() => {
+                  const SEGS = [
+                    { key: 'direct', label: 'Прямые продажи', hdr: 'bg-blue-900',   row: 'bg-blue-50',   txt: 'text-blue-700' },
+                    { key: 'to',     label: 'Туроператоры',   hdr: 'bg-indigo-900', row: 'bg-indigo-50', txt: 'text-indigo-700' },
+                    { key: 'fss',    label: 'ФСС / Соцстрах', hdr: 'bg-emerald-900',row: 'bg-emerald-50',txt: 'text-emerald-700' },
+                    { key: 'corp',   label: 'Корпораты/MICE', hdr: 'bg-purple-900', row: 'bg-purple-50', txt: 'text-purple-700' },
+                    { key: 'ota',    label: 'OTA',            hdr: 'bg-slate-800',  row: 'bg-slate-50',  txt: 'text-slate-600' },
+                  ];
+
+                  // Предрасчёт план/факт по всем месяцам
+                  const mData = MONTHS.map((m, mIdx) => {
+                    const mRev = totals.monthResults[mIdx].mRev;
+                    return SEGS.map(s => {
+                      const sd = segmentData[mIdx][s.key as keyof typeof segmentData[0]];
+                      const planPct = sd.plan;
+                      const planRev = mRev * (planPct / 100);
+                      const factPct = sd.fact || 0;
+                      const factRev = sd.revFact || 0;
+                      const devRev = factRev > 0 ? factRev - planRev : null;
+                      const devPct = factRev > 0 && planRev > 0 ? ((factRev - planRev) / planRev) * 100 : null;
+                      return { planPct, planRev, factPct, factRev, devRev, devPct };
+                    });
+                  });
+
+                  const varCls = (v: number | null) => v === null ? 'text-slate-300' : v >= 0 ? 'text-emerald-600 font-bold' : 'text-red-500 font-bold';
+                  const varTxt = (v: number | null) => v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+
+                  const MW = { width: '80px', minWidth: '80px', maxWidth: '80px' };
+
+                  return (
+                    <>
+                      {/* ══ ТАБЛИЦА 1: ПЛАН ══ */}
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-5 py-4 bg-indigo-950 border-b border-indigo-800 flex items-center justify-between gap-4">
+                          <div>
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider">ПЛАН — доходы по каналам продаж</h2>
+                            <p className="text-[10px] text-indigo-400 mt-0.5">Задайте плановую долю (%) каждого канала — суммы пересчитаются. Сумма долей по строке должна быть 100%.</p>
+                          </div>
+                          <button
+                            onClick={() => setSegRefreshedAt(new Date())}
+                            className="flex items-center gap-2 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+                          >
+                            <RefreshCw size={13} />
+                            Обновить из загрузки
+                            {segRefreshedAt && (
+                              <span className="text-indigo-300 font-normal">
+                                · {segRefreshedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full data-table min-w-[860px]">
+                            <thead>
+                              <tr>
+                                <th className="text-left bg-slate-900 sticky left-0 z-10 text-xs py-3 px-3" style={MW}>Месяц</th>
+                                {SEGS.map(s => (
+                                  <th key={s.key} colSpan={2} className={`text-center text-xs py-3 ${s.hdr} border-l-2 border-slate-700`}>{s.label}</th>
+                                ))}
+                                <th colSpan={2} className="bg-slate-700 text-center text-xs py-3 border-l-2 border-slate-500">Итого</th>
+                              </tr>
+                              <tr>
+                                <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
+                                {SEGS.map(s => (
+                                  <React.Fragment key={s.key}>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'68px'}}>Доля, %</th>
+                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'110px'}}>тыс. руб</th>
+                                  </React.Fragment>
+                                ))}
+                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2 border-l-2 border-slate-500" style={{width:'72px'}}>
+                                  Сумма %
+                                </th>
+                                <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-right py-2 pr-3" style={{width:'120px'}}>
+                                  тыс. руб
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {MONTHS.map((m, mIdx) => {
+                                const row = mData[mIdx];
+                                const sumPct = row.reduce((a, s) => a + s.planPct, 0);
+                                const rowTotal = row.reduce((a, s) => a + s.planRev, 0);
+                                const pctOk = Math.abs(sumPct - 100) < 0.5;
+                                const pctOver = sumPct > 100.5;
+                                const pctCls = pctOk
+                                  ? 'text-emerald-600 font-black'
+                                  : pctOver
+                                    ? 'text-red-600 font-black'
+                                    : 'text-amber-600 font-black';
+                                const pctBg = pctOk ? 'bg-emerald-50' : pctOver ? 'bg-red-50' : 'bg-amber-50';
+                                return (
+                                  <tr key={mIdx} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                                    <td className="font-bold text-slate-900 sticky left-0 bg-white z-10 text-xs py-2.5 px-3 border-r border-slate-100" style={MW}>{m.name}</td>
+                                    {SEGS.map((s, si) => (
+                                      <React.Fragment key={s.key}>
+                                        <td className="text-center border-l-2 border-slate-100 p-0">
+                                          <input
+                                            type="number"
+                                            value={row[si].planPct}
+                                            onChange={(e) => handleSegmentChange(mIdx, s.key, 'plan', e.target.value)}
+                                            className={`w-full text-center text-sm font-bold ${s.txt} outline-none bg-transparent px-1 py-2.5`}
+                                          />
+                                        </td>
+                                        <td className={`text-right pr-3 py-2.5 ${s.row}`}>
+                                          <span className={`text-sm font-black ${s.txt}`}>{formatThs(row[si].planRev)}</span>
+                                        </td>
+                                      </React.Fragment>
+                                    ))}
+                                    {/* Итого: проверка % + сумма тыс. руб */}
+                                    <td className={`text-center py-2.5 border-l-2 border-slate-200 ${pctBg}`}>
+                                      <div className={`text-sm ${pctCls}`}>{sumPct.toFixed(0)}%</div>
+                                      {!pctOk && (
+                                        <div className="text-[9px] text-slate-500 leading-tight">
+                                          {pctOver ? `перебор +${(sumPct - 100).toFixed(0)}%` : `нехватка −${(100 - sumPct).toFixed(0)}%`}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="text-right pr-3 py-2.5 bg-slate-100">
+                                      <span className="text-sm font-black text-slate-800">{formatThs(rowTotal)}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              {(() => {
+                                const totBySegs = SEGS.map((_, si) => ({
+                                  planRev: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].planRev, 0),
+                                  avgPct: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].planPct, 0) / MONTHS.length,
+                                }));
+                                const grandTotal = totBySegs.reduce((a, s) => a + s.planRev, 0);
+                                const avgSumPct = totBySegs.reduce((a, s) => a + s.avgPct, 0);
+                                const avgOk = Math.abs(avgSumPct - 100) < 0.5;
+                                return (
+                                  <tr className="bg-slate-900 text-white">
+                                    <td className="py-2.5 px-3 uppercase text-[9px] tracking-wider sticky left-0 bg-slate-900" style={MW}>ИТОГО ГОД</td>
+                                    {SEGS.map((s, si) => (
+                                      <React.Fragment key={s.key}>
+                                        <td className="text-center text-slate-300 text-sm font-bold border-l-2 border-slate-700">{totBySegs[si].avgPct.toFixed(0)}%</td>
+                                        <td className="text-right pr-3 font-black text-base text-slate-100">{formatThs(totBySegs[si].planRev)}</td>
+                                      </React.Fragment>
+                                    ))}
+                                    <td className={`text-center text-sm font-black border-l-2 border-slate-500 ${avgOk ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      {avgSumPct.toFixed(0)}%
+                                    </td>
+                                    <td className="text-right pr-3 font-black text-base text-white">{formatThs(grandTotal)}</td>
+                                  </tr>
+                                );
+                              })()}
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* ══ ТАБЛИЦА 2: ФАКТ + ОТКЛОНЕНИЕ ══ */}
+                      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-5 py-4 bg-emerald-950 border-b border-emerald-800 flex items-baseline gap-3">
+                          <h2 className="text-sm font-bold text-white uppercase tracking-wider">ФАКТ — выполнение плана по каналам</h2>
+                          <p className="text-[10px] text-emerald-400">Вводите фактический % и фактические доходы. Отклонение от плана считается автоматически.</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full data-table min-w-[1000px]">
+                            <thead>
+                              <tr>
+                                <th className="text-left bg-slate-900 sticky left-0 z-10 text-xs py-3 px-3" style={MW}>Месяц</th>
+                                {SEGS.map(s => (
+                                  <th key={s.key} colSpan={3} className={`text-center text-xs py-3 ${s.hdr} border-l-2 border-slate-700`}>{s.label}</th>
+                                ))}
+                                <th colSpan={2} className="bg-emerald-900 text-center text-xs py-3 border-l-2 border-emerald-700">Итого</th>
+                              </tr>
+                              <tr>
+                                <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
+                                {SEGS.map(s => (
+                                  <React.Fragment key={s.key}>
+                                    <th className="bg-slate-800 text-[10px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-2" style={{width:'68px'}}>Факт, %</th>
+                                    <th className="bg-slate-700 text-[10px] font-semibold text-slate-300 text-right py-2 pr-3" style={{width:'110px'}}>Факт, млн ₽</th>
+                                    <th className="bg-slate-600 text-[10px] font-semibold text-slate-200 text-center py-2" style={{width:'72px'}}>Откл., %</th>
+                                  </React.Fragment>
+                                ))}
+                                <th className="bg-emerald-900 text-[10px] font-semibold text-emerald-200 text-right py-2 pr-3 border-l-2 border-emerald-700" style={{width:'110px'}}>Факт, млн ₽</th>
+                                <th className="bg-emerald-900 text-[10px] font-semibold text-emerald-200 text-center py-2" style={{width:'72px'}}>Откл., %</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {MONTHS.map((m, mIdx) => {
+                                const row = mData[mIdx];
+                                const rowTotalPlan = row.reduce((a, s) => a + s.planRev, 0);
+                                const rowTotalFact = row.reduce((a, s) => a + s.factRev, 0);
+                                const rowHasFact = row.some(s => s.factRev > 0);
+                                const rowDevPct = rowHasFact && rowTotalPlan > 0 ? ((rowTotalFact - rowTotalPlan) / rowTotalPlan) * 100 : null;
+                                return (
+                                  <tr key={mIdx} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
+                                    <td className="font-bold text-slate-900 sticky left-0 bg-white z-10 text-xs py-2.5 px-3 border-r border-slate-100" style={MW}>{m.name}</td>
+                                    {SEGS.map((s, si) => {
+                                      const sd = row[si];
+                                      return (
+                                        <React.Fragment key={s.key}>
+                                          <td className="text-center border-l-2 border-slate-100 p-0">
+                                            <input
+                                              type="number"
+                                              value={segmentData[mIdx][s.key as keyof typeof segmentData[0]].fact || ''}
+                                              placeholder="—"
+                                              onChange={(e) => handleSegmentChange(mIdx, s.key, 'fact', e.target.value)}
+                                              className={`w-full text-center text-sm font-bold ${s.txt} outline-none bg-transparent px-1 py-2.5`}
+                                            />
+                                          </td>
+                                          <td className={`p-0 ${s.row}`}>
+                                            <input
+                                              type="number"
+                                              value={segmentData[mIdx][s.key as keyof typeof segmentData[0]].revFact || ''}
+                                              placeholder="—"
+                                              onChange={(e) => handleSegmentChange(mIdx, s.key, 'revFact', e.target.value)}
+                                              className={`w-full text-right text-sm font-bold ${s.txt} outline-none bg-transparent px-2 py-2.5`}
+                                            />
+                                          </td>
+                                          <td className={`text-center py-2.5 text-sm font-bold ${varCls(sd.devPct)}`}>
+                                            {varTxt(sd.devPct)}
+                                          </td>
+                                        </React.Fragment>
+                                      );
+                                    })}
+                                    <td className={`text-right pr-3 py-2.5 border-l-2 border-emerald-100 text-sm font-black ${rowHasFact ? 'text-emerald-700' : 'text-slate-300'}`}>
+                                      {rowHasFact ? (rowTotalFact / 1000000).toFixed(2) : '—'}
+                                    </td>
+                                    <td className={`text-center py-2.5 text-sm font-bold ${varCls(rowDevPct)}`}>
+                                      {varTxt(rowDevPct)}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              {(() => {
+                                const totBySegs = SEGS.map((_, si) => ({
+                                  factRev: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].factRev, 0),
+                                  planRev: MONTHS.reduce((a, __, mIdx) => a + mData[mIdx][si].planRev, 0),
+                                }));
+                                const grandFact = totBySegs.reduce((a, s) => a + s.factRev, 0);
+                                const grandPlan = totBySegs.reduce((a, s) => a + s.planRev, 0);
+                                const grandDev = grandFact > 0 && grandPlan > 0 ? ((grandFact - grandPlan) / grandPlan) * 100 : null;
+                                return (
+                                  <tr className="bg-slate-900 text-white">
+                                    <td className="py-2.5 px-3 uppercase text-[9px] tracking-wider sticky left-0 bg-slate-900" style={MW}>ИТОГО ГОД</td>
+                                    {SEGS.map((s, si) => {
+                                      const t = totBySegs[si];
+                                      const dev = t.factRev > 0 && t.planRev > 0 ? ((t.factRev - t.planRev) / t.planRev) * 100 : null;
+                                      return (
+                                        <React.Fragment key={s.key}>
+                                          <td className="text-center text-slate-400 border-l-2 border-slate-700">—</td>
+                                          <td className="text-right pr-3 font-black text-base text-emerald-300">{t.factRev > 0 ? (t.factRev / 1000000).toFixed(1) : '—'}</td>
+                                          <td className={`text-center font-bold text-sm ${dev !== null ? (dev >= 0 ? 'text-emerald-300' : 'text-red-300') : 'text-slate-500'}`}>{varTxt(dev)}</td>
+                                        </React.Fragment>
+                                      );
+                                    })}
+                                    <td className="text-right pr-3 font-black text-base text-emerald-300 border-l-2 border-emerald-700">{grandFact > 0 ? (grandFact / 1000000).toFixed(1) : '—'}</td>
+                                    <td className={`text-center font-bold text-sm ${grandDev !== null ? (grandDev >= 0 ? 'text-emerald-300' : 'text-red-300') : 'text-slate-500'}`}>{varTxt(grandDev)}</td>
+                                  </tr>
+                                );
+                              })()}
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </motion.div>
             )}
 
@@ -3373,7 +3713,7 @@ export default function App() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                   <h3 className="font-bold mb-1">Управление миксом программ</h3>
                   {(() => {
-                    const total = Object.values(pkgMix).reduce((a, b) => a + b, 0);
+                    const total = (Object.values(pkgMix) as number[]).reduce((a, b) => a + b, 0);
                     const diff = total - 100;
                     return (
                       <div className={`mb-4 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${Math.abs(diff) < 0.1 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
@@ -3600,13 +3940,19 @@ export default function App() {
                     <table className="w-full border-collapse text-sm">
                       <thead>
                         <tr className="bg-slate-900 text-white">
-                          <th className="p-3 border border-slate-700 text-left">Тариф</th>
-                          <th className="p-3 border border-slate-700 text-right">Цена</th>
-                          <th className="p-3 border border-slate-700 text-center" colSpan={3}>Питание (Б/О/У)</th>
-                          <th className="p-3 border border-slate-700 text-right">SPA</th>
-                          <th className="p-3 border border-slate-700 text-right">Мед.</th>
-                          <th className="p-3 border border-slate-700 text-right">Прожив.</th>
-                          <th className="p-3 border border-slate-700 text-right">Итого</th>
+                          <th className="p-3 border border-slate-700 text-left" rowSpan={2}>Тариф / Пакет</th>
+                          <th className="p-3 border border-slate-700 text-right" rowSpan={2}>Цена<br/><span className="text-[9px] font-normal opacity-60">за к-день, ₽</span></th>
+                          <th className="p-3 border border-slate-700 text-center bg-amber-900" colSpan={4}>Питание</th>
+                          <th className="p-3 border border-slate-700 text-right bg-cyan-900" rowSpan={2}>SPA</th>
+                          <th className="p-3 border border-slate-700 text-right bg-purple-900" rowSpan={2}>Медицина</th>
+                          <th className="p-3 border border-slate-700 text-right bg-indigo-900" rowSpan={2}>Проживание</th>
+                          <th className="p-3 border border-slate-700 text-right bg-emerald-900" rowSpan={2}>Итого</th>
+                        </tr>
+                        <tr className="bg-slate-800 text-white text-[10px]">
+                          <th className="p-2 border border-slate-700 text-right bg-amber-950">Итого</th>
+                          <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Завтрак</th>
+                          <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Обед</th>
+                          <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Ужин</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3625,27 +3971,28 @@ export default function App() {
                             };
                           };
 
-                          let b=0, l=0, d=0, spa=0, med=0, acc=0;
+                          let b=0, l=0, d=0, spa=0, med=0, acc=0, foodTotal=0;
 
                           if (['aqua_fb', 'ultra', 'spa', 'promo'].includes(pk.key)) {
-                            const foodTotal = price * calcConfig.fb_ultra_spa.food / 100;
+                            foodTotal = Math.round(price * calcConfig.fb_ultra_spa.food / 100);
                             b = Math.round(foodTotal * calcConfig.fb_ultra_spa.b / 100);
                             l = Math.round(foodTotal * calcConfig.fb_ultra_spa.l / 100);
-                            d = Math.round(foodTotal * calcConfig.fb_ultra_spa.d / 100);
+                            d = foodTotal - b - l; // остаток — ужин, чтобы b+l+d = foodTotal точно
                             spa = Math.round(price * calcConfig.fb_ultra_spa.spa / 100);
                             med = Math.round(price * calcConfig.fb_ultra_spa.med / 100);
-                            acc = Math.round(price * calcConfig.fb_ultra_spa.acc / 100);
+                            acc = price - foodTotal - spa - med; // остаток — проживание
                           } else if (pk.key === 'med') {
-                            const foodTotal = price * calcConfig.ultra_med.food / 100;
+                            foodTotal = Math.round(price * calcConfig.ultra_med.food / 100);
                             b = Math.round(foodTotal * calcConfig.ultra_med.b / 100);
                             l = Math.round(foodTotal * calcConfig.ultra_med.l / 100);
-                            d = Math.round(foodTotal * calcConfig.ultra_med.d / 100);
+                            d = foodTotal - b - l;
                             spa = Math.round(price * calcConfig.ultra_med.spa / 100);
                             med = Math.round(price * calcConfig.ultra_med.med / 100);
-                            acc = Math.round(price * calcConfig.ultra_med.acc / 100);
+                            acc = price - foodTotal - spa - med;
                           } else if (pk.key === 'aqua_bb') {
                             const base = getBaseFood();
                             b = base.b;
+                            foodTotal = b;
                             spa = Math.round(price * calcConfig.others.spa / 100);
                             med = Math.round(price * calcConfig.others.med / 100);
                             acc = price - b - spa - med;
@@ -3653,24 +4000,28 @@ export default function App() {
                             const base = getBaseFood();
                             b = base.b;
                             d = base.d;
+                            foodTotal = b + d;
                             spa = Math.round(price * calcConfig.others.spa / 100);
                             med = Math.round(price * calcConfig.others.med / 100);
                             acc = price - b - d - spa - med;
                           }
 
-                          const sum = b + l + d + spa + med + acc;
+                          // Итого всегда = Цена (acc рассчитан как остаток)
+                          const sum = foodTotal + spa + med + acc;
 
                           return (
                             <tr key={pk.key} className="hover:bg-slate-50 transition-colors">
                               <td className="p-3 border border-slate-200 font-bold">{pk.label}</td>
-                              <td className="p-3 border border-slate-200 text-right font-mono bg-slate-50">{price.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right text-xs text-slate-500">{b.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right text-xs text-slate-500">{l.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right text-xs text-slate-500">{d.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right">{spa.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right">{med.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-200 text-right font-mono font-black bg-slate-50">{price.toLocaleString()}</td>
+                              {/* Питание: итого + расшифровка Б/О/У */}
+                              <td className="p-3 border border-slate-200 text-right font-bold text-amber-700">{foodTotal.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-200 text-right text-[10px] text-slate-400">{b > 0 ? b.toLocaleString() : '—'}</td>
+                              <td className="p-3 border border-slate-200 text-right text-[10px] text-slate-400">{l > 0 ? l.toLocaleString() : '—'}</td>
+                              <td className="p-3 border border-slate-200 text-right text-[10px] text-slate-400">{d > 0 ? d.toLocaleString() : '—'}</td>
+                              <td className="p-3 border border-slate-200 text-right font-bold text-cyan-700">{spa.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-200 text-right font-bold text-purple-700">{med.toLocaleString()}</td>
                               <td className="p-3 border border-slate-200 text-right font-bold text-indigo-600">{acc.toLocaleString()}</td>
-                              <td className={`p-3 border border-slate-200 text-right font-black ${sum !== price ? 'text-red-500' : 'text-slate-900'}`}>{sum.toLocaleString()}</td>
+                              <td className={`p-3 border border-slate-200 text-right font-black text-lg ${sum !== price ? 'text-red-500' : 'text-emerald-600'}`}>{sum.toLocaleString()}</td>
                             </tr>
                           );
                         })}
@@ -3678,6 +4029,22 @@ export default function App() {
                     </table>
                   </div>
                   
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-slate-500">
+                    <p className="font-bold text-slate-700 mb-2 uppercase tracking-wider">Методология расчёта</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p><span className="font-bold text-amber-700">Питание</span> = % от цены (FB/SPA/Ultra: {calcConfig.fb_ultra_spa.food}%, МЕД: {calcConfig.ultra_med.food}%)</p>
+                        <p className="mt-1 opacity-80">Завтрак / Обед / Ужин — доля внутри питания ({calcConfig.fb_ultra_spa.b}/{calcConfig.fb_ultra_spa.l}/{calcConfig.fb_ultra_spa.d}%)</p>
+                        <p className="mt-1">Для BB/HB — питание рассчитывается от базовой цены Ultra</p>
+                      </div>
+                      <div>
+                        <p><span className="font-bold text-cyan-700">SPA</span> = {calcConfig.fb_ultra_spa.spa}% от цены (FB/Ultra/SPA) · {calcConfig.others.spa}% (BB/HB)</p>
+                        <p className="mt-1"><span className="font-bold text-purple-700">Медицина</span> = {calcConfig.fb_ultra_spa.med}% (FB/Ultra) · {calcConfig.ultra_med.med}% (МЕД) · {calcConfig.others.med}% (BB/HB)</p>
+                        <p className="mt-1"><span className="font-bold text-indigo-700">Проживание</span> = Цена − Питание − SPA − Медицина</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mt-8 grid grid-cols-2 gap-8 text-[10px] uppercase font-bold text-slate-400">
                     <div>
                       <p className="mb-8">Составил: ___________________ / Финансовая служба /</p>
