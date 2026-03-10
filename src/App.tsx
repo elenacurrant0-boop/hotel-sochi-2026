@@ -119,7 +119,7 @@ const initialPrices = () => {
     }
   };
   Object.keys(p).forEach(rt => {
-    p[rt].promo = PRICE_PERIODS.map((pp, i) => pp.isLow ? Math.round(p[rt].ultra[i] * 0.9) : 0);
+    p[rt].promo = PRICE_PERIODS.map((pp, i) => Math.round(p[rt].ultra[i] * 0.9));
   });
   return p;
 };
@@ -581,7 +581,7 @@ export default function App() {
           let totalRawMix = 0;
           PACKAGES.forEach(pk => {
             let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
-            if (pk.key === 'promo' && !s.isLow) m = 0;
+            // PROMO applies in all seasons (no season restriction)
             rawMixes[pk.key] = m;
             totalRawMix += m;
           });
@@ -735,7 +735,7 @@ export default function App() {
               let sTotalRaw = 0;
               PACKAGES.forEach(pk => {
                 let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
-                if (pk.key === 'promo' && !s.isLow) m = 0;
+                // PROMO applies in all seasons (no season restriction)
                 sRawMixes[pk.key] = m;
                 sTotalRaw += m;
               });
@@ -787,8 +787,8 @@ export default function App() {
     setPrices((prev: any) => {
       const updated = { ...prev };
       ROOM_TYPES.forEach(rt => {
-        updated[rt.key].promo = PRICE_PERIODS.map((pp, i) =>
-          pp.isLow ? Math.round(updated[rt.key][promoBasePkg][i] * (1 - promoDiscount / 100)) : 0
+        updated[rt.key].promo = PRICE_PERIODS.map((_pp, i) =>
+          Math.round(updated[rt.key][promoBasePkg][i] * (1 - promoDiscount / 100))
         );
       });
       return updated;
@@ -4612,19 +4612,13 @@ export default function App() {
                                       const adrNetto = avgPrice * avgGuests * segWeightedCoeff;
                                       const planMix = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX];
                                       const effMixPct = totalRN > 0 ? (agg.rn / totalRN) * 100 : 0;
-                                      const isPromoOff = pk.key === 'promo' && mo.distribution.every(d => {
-                                        const sv = seasons.find(s => s.key === d.sKey)!;
-                                        return !sv.isLow;
-                                      });
-
                                       return (
                                         <tr key={pk.key} className={`border-b border-slate-100 hover:bg-slate-50 ${agg.rn < 0.01 && planMix === 0 ? 'opacity-30' : ''}`}>
                                           <td className={`py-2 px-3 font-semibold ${pk.color}`}>
                                             {pk.short}
-                                            {isPromoOff && <span className="ml-1 text-[10px] text-red-400 font-normal">(не сезон)</span>}
                                           </td>
                                           <td className="py-2 px-3 text-center text-slate-500">{planMix}%</td>
-                                          <td className={`py-2 px-3 text-center font-semibold ${isPromoOff ? 'text-red-400' : effMixPct > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
+                                          <td className={`py-2 px-3 text-center font-semibold ${effMixPct > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
                                             {effMixPct.toFixed(1)}%
                                           </td>
                                           <td className="py-2 px-3 text-right text-slate-600">{Math.round(agg.rn).toLocaleString('ru')}</td>
