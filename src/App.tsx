@@ -3931,31 +3931,36 @@ export default function App() {
                     Печать Прейскуранта
                   </button>
                 </div>
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full data-table">
-                      <thead>
-                        <tr>
-                          <th className="w-48">Категория / Пакет</th>
-                          {PRICE_PERIODS.map((pp) => (
-                            <th key={pp.pIdx} className="text-center">
-                              <div className="text-[8px] leading-tight whitespace-pre-wrap text-center">{pp.dates.replace(/ \/ /g, '\n')}</div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ROOM_TYPES.map(rt => (
-                          PACKAGES.map(pk => (
-                            <tr key={`${rt.key}-${pk.key}`}>
-                              <td className="font-semibold text-slate-700">
-                                {rt.label} · {pk.short}
+                {PRICE_PERIODS.map((pp) => (
+                  <div key={pp.pIdx} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center gap-4">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Период {pp.pIdx + 1}</span>
+                      <span className="text-sm font-semibold text-slate-700">{pp.dates}</span>
+                      <span className="text-xs text-slate-400 ml-auto">{SEASONS.find(s => s.key === pp.sKey)?.name}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full data-table">
+                        <thead>
+                          <tr>
+                            <th className="w-48">Категория</th>
+                            {PACKAGES.map(pk => (
+                              <th key={pk.key} className="text-center">
+                                {pk.short}
                                 {pk.key === 'promo' && (
-                                  <span className="text-[8px] font-normal text-slate-400 ml-1">-{promoDiscount}% от {PACKAGES.find(p => p.key === promoBasePkg)?.short}</span>
+                                  <div className="text-[8px] font-normal text-slate-400 mt-1">
+                                    -{promoDiscount}% от {PACKAGES.find(p => p.key === promoBasePkg)?.short}
+                                  </div>
                                 )}
-                              </td>
-                              {PRICE_PERIODS.map((pp) => (
-                                <td key={pp.pIdx} className="text-center">
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ROOM_TYPES.map(rt => (
+                            <tr key={rt.key}>
+                              <td className="font-semibold text-slate-700">{rt.label}</td>
+                              {PACKAGES.map(pk => (
+                                <td key={pk.key} className="text-center">
                                   <input
                                     type="number"
                                     value={prices[rt.key][pk.key][pp.pIdx] || ''}
@@ -3967,12 +3972,12 @@ export default function App() {
                                 </td>
                               ))}
                             </tr>
-                          ))
-                        ))}
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                ))}
               </motion.div>
             )}
 
