@@ -394,7 +394,23 @@ export default function App() {
       data.pkgMixByMonth = MONTHS.map(() => ({ ...data.pkgMix }));
     }
     if (data.pkgMixByMonth) setPkgMixByMonth(data.pkgMixByMonth);
-    if (data.prices) setPrices(data.prices);
+    // Migration: recalculate PROMO prices where they are 0 for non-low periods
+    // (old system set PROMO=0 for non-low seasons; new system allows PROMO everywhere)
+    if (data.prices) {
+      const migratedPrices = data.prices;
+      ROOM_TYPES.forEach(rt => {
+        PRICE_PERIODS.forEach(pp => {
+          if (!pp.isLow) {
+            const promoVal = migratedPrices[rt.key]?.promo?.[pp.pIdx];
+            const ultraVal = migratedPrices[rt.key]?.ultra?.[pp.pIdx];
+            if (promoVal === 0 && ultraVal > 0) {
+              migratedPrices[rt.key].promo[pp.pIdx] = Math.round(ultraVal * 0.9);
+            }
+          }
+        });
+      });
+      setPrices(migratedPrices);
+    }
     if (data.seasons) setSeasons(data.seasons);
     if (data.seasonData) setSeasonData(data.seasonData);
     if (data.segmentData) setSegmentData(data.segmentData);
