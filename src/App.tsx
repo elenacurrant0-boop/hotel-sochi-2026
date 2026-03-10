@@ -1736,67 +1736,11 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Помесячный микс пакетных программ */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                      <Briefcase size={16} /> Структура продаж по месяцам (Mix, %)
-                    </h3>
-                    <button
-                      onClick={() => setPkgMixByMonth(prev => prev.map(() => ({ ...prev[0] })))}
-                      className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
-                    >
-                      Янв → все месяцы
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-slate-900 text-white">
-                          <th className="py-2 px-3 text-left font-semibold">Месяц</th>
-                          {PACKAGES.map(pk => <th key={pk.key} className={`py-2 px-2 text-center font-bold ${pk.color}`}>{pk.short}</th>)}
-                          <th className="py-2 px-3 text-center font-semibold text-slate-300">Итого</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {MONTHS.map((m, mIdx) => {
-                          const mix = pkgMixByMonth[mIdx];
-                          const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
-                          const ok = Math.abs(total - 100) < 0.1;
-                          return (
-                            <tr key={mIdx} className={`border-b border-slate-100 ${mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                              <td className="py-1.5 px-3 font-semibold text-slate-700">{m.name}</td>
-                              {PACKAGES.map(pk => (
-                                <td key={pk.key} className="py-1 px-2 text-center">
-                                  <input
-                                    type="number"
-                                    min={0} max={100}
-                                    value={mix[pk.key as keyof typeof DEFAULT_PKG_MIX]}
-                                    onChange={(e) => {
-                                      const val = parseInt(e.target.value) || 0;
-                                      setPkgMixByMonth(prev => prev.map((mo, i) => i === mIdx ? { ...mo, [pk.key]: val } : mo));
-                                    }}
-                                    className={`w-12 text-center font-bold bg-transparent outline-none border-b border-transparent focus:border-indigo-400 ${pk.color}`}
-                                  />
-                                </td>
-                              ))}
-                              <td className={`py-1.5 px-3 text-center font-black ${ok ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {total}%
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr className="bg-slate-100 border-t-2 border-slate-300">
-                          <td className="py-2 px-3 font-black uppercase text-[10px] text-slate-500">Среднее</td>
-                          {PACKAGES.map(pk => {
-                            const avg = Math.round(pkgMixByMonth.reduce((s, m) => s + m[pk.key as keyof typeof DEFAULT_PKG_MIX], 0) / 12);
-                            return <td key={pk.key} className={`py-2 px-2 text-center font-black ${pk.color}`}>{avg}%</td>;
-                          })}
-                          <td className="py-2 px-3 text-center font-black text-slate-400">—</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-xl">
+                  <p className="text-sm text-indigo-700 flex items-center gap-2">
+                    <Briefcase size={16} className="text-indigo-500 shrink-0" />
+                    Помесячный микс программ настраивается во вкладке <b>«Пакетные предложения»</b>
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -4043,34 +3987,82 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="grid grid-cols-1 md:grid-cols-2 gap-6"
               >
-                <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <Briefcase size={20} className="text-indigo-600 mt-0.5 shrink-0" />
-                    <div>
-                      <h3 className="font-bold text-indigo-900 mb-1">Микс пакетных программ</h3>
-                      <p className="text-sm text-indigo-700 mb-4">Настройка микса перенесена в <b>Панель управления</b> — там можно задать значения по каждому месяцу отдельно и скопировать на весь год.</p>
-                      <button onClick={() => setActiveTab('admin')} className="text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
-                        Перейти в Панель управления →
-                      </button>
-                    </div>
+                {/* Помесячный микс — полная ширина */}
+                <div className="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <Briefcase size={18} className="text-indigo-500" /> Структура продаж по месяцам (Mix, %)
+                    </h3>
+                    <button
+                      onClick={() => setPkgMixByMonth(prev => prev.map(() => ({ ...prev[0] })))}
+                      className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+                    >
+                      Янв → все месяцы
+                    </button>
                   </div>
-                  <div className="mt-4 space-y-2">
-                    {PACKAGES.map(pk => {
-                      const avg = avgPkgMix[pk.key] ?? 0;
-                      const hasHighSeason = !seasons.every(s => s.isLow);
-                      return (
-                        <div key={pk.key} className="flex justify-between items-center text-xs">
-                          <span className={`font-bold ${pk.color}`}>{pk.label}</span>
-                          <span className="font-black text-slate-700">
-                            {avg}%
-                            {pk.key === 'promo' && avg > 0 && hasHighSeason && (
-                              <span className="ml-2 text-amber-600 font-normal">(в высокий сезон = 0)</span>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900 text-white">
+                          <th className="py-2 px-3 text-left font-semibold">Месяц</th>
+                          {PACKAGES.map(pk => <th key={pk.key} className={`py-2 px-2 text-center font-bold ${pk.color}`}>{pk.short}</th>)}
+                          <th className="py-2 px-3 text-center font-semibold text-slate-300">Итого</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((m, mIdx) => {
+                          const mix = pkgMixByMonth[mIdx];
+                          const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+                          const ok = Math.abs(total - 100) < 0.1;
+                          return (
+                            <tr key={mIdx} className={`border-b border-slate-100 ${mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                              <td className="py-1.5 px-3 font-semibold text-slate-700">{m.name}</td>
+                              {PACKAGES.map(pk => (
+                                <td key={pk.key} className="py-1 px-2 text-center">
+                                  <input
+                                    type="number"
+                                    min={0} max={100}
+                                    value={mix[pk.key as keyof typeof DEFAULT_PKG_MIX]}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 0;
+                                      setPkgMixByMonth(prev => prev.map((mo, i) => i === mIdx ? { ...mo, [pk.key]: val } : mo));
+                                    }}
+                                    className={`w-12 text-center font-bold bg-transparent outline-none border-b border-transparent focus:border-indigo-400 ${pk.color}`}
+                                  />
+                                </td>
+                              ))}
+                              <td className={`py-1.5 px-3 text-center font-black ${ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {total}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Среднее — по каждому пакету, итог = сумма средних */}
+                        <tr className="bg-slate-100 border-t-2 border-slate-300">
+                          <td className="py-2 px-3 font-black uppercase text-[10px] text-slate-500">Среднее</td>
+                          {(() => {
+                            const avgs = PACKAGES.map(pk => ({
+                              key: pk.key,
+                              color: pk.color,
+                              val: Math.round(pkgMixByMonth.reduce((s, mo) => s + mo[pk.key as keyof typeof DEFAULT_PKG_MIX], 0) / 12),
+                            }));
+                            const avgTotal = avgs.reduce((s, a) => s + a.val, 0);
+                            return (
+                              <>
+                                {avgs.map(a => (
+                                  <td key={a.key} className={`py-2 px-2 text-center font-black ${a.color}`}>{a.val}%</td>
+                                ))}
+                                <td className={`py-2 px-3 text-center font-black ${Math.abs(avgTotal - 100) < 2 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                  {avgTotal}%
+                                </td>
+                              </>
+                            );
+                          })()}
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-2">* Среднее считается как округлённое среднее по каждому пакету. Если итог ≠ 100 — проверь, заполнены ли все месяцы.</p>
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
