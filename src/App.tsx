@@ -3459,7 +3459,7 @@ export default function App() {
                                 <th className="bg-slate-800 sticky left-0 z-10" style={MW}></th>
                                 {SEGS.map(s => (
                                   <React.Fragment key={s.key}>
-                                    <th className="bg-slate-800 text-[9px] font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-1" style={{width:'55px'}}>Доля, %</th>
+                                    <th className="bg-slate-800 text-xs font-semibold text-slate-400 border-l-2 border-slate-700 text-center py-1" style={{width:'70px'}}>Доля, %</th>
                                     <th className="bg-slate-800 text-[9px] font-semibold text-slate-400 text-center py-1" style={{width:'55px'}}>RN</th>
                                     <th className="bg-slate-800 text-[9px] font-semibold text-slate-400 text-center py-1" style={{width:'75px'}}>ADR нетто</th>
                                     <th className="bg-slate-700 text-[9px] font-semibold text-slate-300 text-right py-1 pr-3" style={{width:'90px'}}>тыс. руб</th>
@@ -3496,7 +3496,7 @@ export default function App() {
                                             type="number"
                                             value={row[si].planPct}
                                             onChange={(e) => handleSegmentChange(mIdx, s.key, 'plan', e.target.value)}
-                                            className={`w-full text-center text-[10px] font-bold ${s.txt} outline-none bg-transparent px-1 py-1.5`}
+                                            className={`w-full text-center text-base font-bold ${s.txt} outline-none bg-transparent px-1 py-1.5`}
                                           />
                                         </td>
                                         <td className="text-center py-1.5 text-[10px] text-slate-500">
@@ -4506,17 +4506,17 @@ export default function App() {
                                   <th className="py-2 px-3 text-left font-semibold">Даты</th>
                                   <th className="py-2 px-3 text-left font-semibold">Сезон</th>
                                   <th className="py-2 px-3 text-center font-semibold">Дней</th>
-                                  <th className="py-2 px-3 text-center font-semibold">ПРОМО</th>
                                   {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
-                                    <th key={rt.key} colSpan={2} className="py-2 px-3 text-center font-semibold border-l border-slate-600">{rt.label}</th>
+                                    <th key={rt.key} colSpan={PACKAGES.length} className="py-2 px-3 text-center font-semibold border-l border-slate-600">{rt.label}</th>
                                   ))}
                                 </tr>
-                                <tr className="bg-slate-700 text-slate-300">
-                                  <th></th><th></th><th></th><th></th><th></th>
+                                <tr className="bg-slate-700 text-slate-300 text-[10px]">
+                                  <th></th><th></th><th></th><th></th>
                                   {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
                                     <React.Fragment key={rt.key}>
-                                      <th className="py-1 px-3 text-center border-l border-slate-600">Ultra ₽</th>
-                                      <th className="py-1 px-3 text-center">Med ₽</th>
+                                      {PACKAGES.map((pk, pkIdx) => (
+                                        <th key={pk.key} className={`py-1 px-2 text-center ${pkIdx === 0 ? 'border-l border-slate-600' : ''}`}>{pk.short}</th>
+                                      ))}
                                     </React.Fragment>
                                   ))}
                                 </tr>
@@ -4530,17 +4530,16 @@ export default function App() {
                                       <td className="py-2 px-3 text-slate-500">{PRICE_PERIODS[dist.pIdx].dates}</td>
                                       <td className="py-2 px-3 font-medium">{s.name}</td>
                                       <td className="py-2 px-3 text-center font-bold">{dist.days}</td>
-                                      <td className={`py-2 px-3 text-center font-semibold ${s.isLow ? 'text-emerald-600' : 'text-red-400'}`}>
-                                        {s.isLow ? '✓ вкл' : '✗ выкл'}
-                                      </td>
                                       {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
                                         <React.Fragment key={rt.key}>
-                                          <td className="py-2 px-3 text-right text-indigo-600 font-mono border-l border-slate-100">
-                                            {((prices[rt.key]?.ultra?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100)).toLocaleString('ru')}
-                                          </td>
-                                          <td className="py-2 px-3 text-right text-orange-600 font-mono">
-                                            {((prices[rt.key]?.med?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100)).toLocaleString('ru')}
-                                          </td>
+                                          {PACKAGES.map((pk, pkIdx) => {
+                                            const price = (prices[rt.key]?.[pk.key]?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100);
+                                            return (
+                                              <td key={pk.key} className={`py-2 px-2 text-right font-mono text-[11px] ${pkIdx === 0 ? 'border-l border-slate-100' : ''} ${price > 0 ? pk.color : 'text-slate-300'}`}>
+                                                {price > 0 ? Math.round(price).toLocaleString('ru') : '—'}
+                                              </td>
+                                            );
+                                          })}
                                         </React.Fragment>
                                       ))}
                                     </tr>
@@ -4571,8 +4570,7 @@ export default function App() {
                             const rawMixes: Record<string, number> = {};
                             let totalRaw = 0;
                             PACKAGES.forEach(pk => {
-                              let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
-                              if (pk.key === 'promo' && !sv.isLow) m = 0;
+                              const m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
                               rawMixes[pk.key] = m;
                               totalRaw += m;
                             });
