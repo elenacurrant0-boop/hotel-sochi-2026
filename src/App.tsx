@@ -62,56 +62,64 @@ const SEASONS = [
   { key: 'holidays', name: 'Праздники', dates: '23фев, 8мар, майские',  defaultOcc: 88, defaultGuests: 2.3 },
 ];
 
+const PRICE_PERIODS = [
+  { pIdx: 0, dates: "12.02–19.02",                                     sKey: 'low',      isLow: true },
+  { pIdx: 1, dates: "20.02–23.02 / 06.03–09.03 / 28.03–30.04",        sKey: 'low',      isLow: true },
+  { pIdx: 2, dates: "24.02–05.03 / 10.03–27.03",                       sKey: 'low',      isLow: true },
+  { pIdx: 3, dates: "01.05–02.05 / 08.05–10.05",                       sKey: 'holidays'              },
+  { pIdx: 4, dates: "03.05–07.05 / 11.05–31.05",                       sKey: 'mid'                   },
+  { pIdx: 5, dates: "01.06–20.06",                                      sKey: 'high'                  },
+  { pIdx: 6, dates: "21.06–24.08",                                      sKey: 'peak'                  },
+  { pIdx: 7, dates: "25.08–30.09",                                      sKey: 'high'                  },
+  { pIdx: 8, dates: "01.10–31.10",                                      sKey: 'mid'                   },
+  { pIdx: 9, dates: "01.11–28.12",                                      sKey: 'low',      isLow: true },
+];
+
 const MONTHS = [
-  { name: "Январь",   days: 31, distribution: [{ sKey: 'low', days: 31 }] },
-  { name: "Февраль",  days: 28, distribution: [{ sKey: 'low', days: 24 }, { sKey: 'holidays', days: 4 }] },
-  { name: "Март",     days: 31, distribution: [{ sKey: 'low', days: 5 }, { sKey: 'holidays', days: 4 }, { sKey: 'low', days: 22 }] },
-  { name: "Апрель",   days: 30, distribution: [{ sKey: 'low', days: 30 }] },
-  { name: "Май",      days: 31, distribution: [{ sKey: 'holidays', days: 10 }, { sKey: 'mid', days: 21 }] },
-  { name: "Июнь",     days: 30, distribution: [{ sKey: 'high', days: 20 }, { sKey: 'peak', days: 10 }] },
-  { name: "Июль",     days: 31, distribution: [{ sKey: 'peak', days: 31 }] },
-  { name: "Август",   days: 31, distribution: [{ sKey: 'peak', days: 24 }, { sKey: 'high', days: 7 }] },
-  { name: "Сентябрь", days: 30, distribution: [{ sKey: 'high', days: 30 }] },
-  { name: "Октябрь",  days: 31, distribution: [{ sKey: 'mid', days: 31 }] },
-  { name: "Ноябрь",   days: 30, distribution: [{ sKey: 'low', days: 30 }] },
-  { name: "Декабрь",  days: 31, distribution: [{ sKey: 'low', days: 31 }] },
+  { name: "Январь",   days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31 }] },
+  { name: "Февраль",  days: 28, distribution: [{ pIdx: 9, sKey: 'low',      days: 11 }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 9 }] },
+  { name: "Март",     days: 31, distribution: [{ pIdx: 2, sKey: 'low',      days: 5  }, { pIdx: 1, sKey: 'low', days: 4 }, { pIdx: 2, sKey: 'low', days: 18 }, { pIdx: 1, sKey: 'low', days: 4 }] },
+  { name: "Апрель",   days: 30, distribution: [{ pIdx: 1, sKey: 'low',      days: 30 }] },
+  { name: "Май",      days: 31, distribution: [{ pIdx: 3, sKey: 'holidays', days: 2  }, { pIdx: 4, sKey: 'mid', days: 5 }, { pIdx: 3, sKey: 'holidays', days: 3 }, { pIdx: 4, sKey: 'mid', days: 21 }] },
+  { name: "Июнь",     days: 30, distribution: [{ pIdx: 5, sKey: 'high',     days: 20 }, { pIdx: 6, sKey: 'peak', days: 10 }] },
+  { name: "Июль",     days: 31, distribution: [{ pIdx: 6, sKey: 'peak',     days: 31 }] },
+  { name: "Август",   days: 31, distribution: [{ pIdx: 6, sKey: 'peak',     days: 24 }, { pIdx: 7, sKey: 'high', days: 7 }] },
+  { name: "Сентябрь", days: 30, distribution: [{ pIdx: 7, sKey: 'high',     days: 30 }] },
+  { name: "Октябрь",  days: 31, distribution: [{ pIdx: 8, sKey: 'mid',      days: 31 }] },
+  { name: "Ноябрь",   days: 30, distribution: [{ pIdx: 9, sKey: 'low',      days: 30 }] },
+  { name: "Декабрь",  days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31 }] },
 ];
 
 const initialPrices = () => {
   const p: any = {
     standard: {
-      aqua_bb: { low: 2700, mid: 3400, high: 5000, peak: 7100, holidays: 3600 },
-      aqua_hb: { low: 3100, mid: 3800, high: 5400, peak: 7500, holidays: 4000 },
-      aqua_fb: { low: 3300, mid: 4000, high: 5600, peak: 7700, holidays: 4200 },
-      ultra:   { low: 3500, mid: 4200, high: 5800, peak: 7900, holidays: 4400 },
-      spa:     { low: 4100, mid: 4800, high: 6600, peak: 9000, holidays: 5000 },
-      med:     { low: 4300, mid: 5000, high: 6800, peak: 9200, holidays: 5200 },
+      aqua_bb: [2500, 3200, 2900, 3600, 3400, 5000, 7100, 5500, 2700, 2500],
+      aqua_hb: [2900, 3600, 3300, 4000, 3800, 5400, 7500, 5900, 3100, 2900],
+      aqua_fb: [3100, 3800, 3500, 4200, 4000, 5600, 7700, 6100, 3300, 3100],
+      ultra:   [3300, 4000, 3700, 4400, 4200, 5800, 7900, 6300, 3500, 3300],
+      spa:     [3900, 4600, 4300, 5000, 4800, 6600, 9000, 7100, 4100, 3900],
+      med:     [4100, 4800, 4500, 5200, 5000, 6800, 9200, 7300, 4300, 4100],
     },
     comfort: {
-      aqua_bb: { low: 2900, mid: 3600, high: 5200, peak: 7300, holidays: 3800 },
-      aqua_hb: { low: 3300, mid: 4000, high: 5600, peak: 7700, holidays: 4200 },
-      aqua_fb: { low: 3500, mid: 4200, high: 5800, peak: 7900, holidays: 4400 },
-      ultra:   { low: 3700, mid: 4400, high: 6000, peak: 8100, holidays: 4600 },
-      spa:     { low: 4300, mid: 5000, high: 6800, peak: 9200, holidays: 5200 },
-      med:     { low: 4500, mid: 5200, high: 7000, peak: 9400, holidays: 5400 },
+      aqua_bb: [2700, 3400, 3100, 3800, 3600, 5200, 7300, 5700, 2900, 2700],
+      aqua_hb: [3100, 3800, 3500, 4200, 4000, 5600, 7700, 6100, 3300, 3100],
+      aqua_fb: [3300, 4000, 3700, 4400, 4200, 5800, 7900, 6300, 3500, 3300],
+      ultra:   [3500, 4200, 3900, 4600, 4400, 6000, 8100, 6500, 3700, 3500],
+      spa:     [4100, 4800, 4500, 5200, 5000, 6800, 9200, 7300, 4300, 4100],
+      med:     [4300, 5000, 4700, 5400, 5200, 7000, 9400, 7500, 4500, 4300],
     },
     lux: {
-      aqua_bb: { low: 3600, mid: 4300, high: 6200, peak: 8700, holidays: 4500 },
-      aqua_hb: { low: 4000, mid: 4700, high: 6600, peak: 9100, holidays: 4900 },
-      aqua_fb: { low: 4200, mid: 4900, high: 6800, peak: 9300, holidays: 5100 },
-      ultra:   { low: 4400, mid: 5100, high: 7000, peak: 9500, holidays: 5300 },
-      spa:     { low: 5000, mid: 5700, high: 7800, peak: 10600, holidays: 5900 },
-      med:     { low: 5200, mid: 5900, high: 8000, peak: 10800, holidays: 6100 },
+      aqua_bb: [3400, 4100, 3800, 4500, 4300, 6200, 8700, 6800, 3700, 3400],
+      aqua_hb: [3800, 4500, 4200, 4900, 4700, 6600, 9100, 7200, 4100, 3800],
+      aqua_fb: [4000, 4700, 4400, 5100, 4900, 6800, 9300, 7400, 4300, 4000],
+      ultra:   [4200, 4900, 4600, 5300, 5100, 7000, 9500, 7600, 4500, 4200],
+      spa:     [4800, 5500, 5200, 5900, 5700, 7800, 10600, 8400, 5100, 4800],
+      med:     [5000, 5700, 5400, 6100, 5900, 8000, 10800, 8600, 5300, 5000],
     }
   };
-
-  // Initialize promo based on ultra (default)
   Object.keys(p).forEach(rt => {
-    p[rt].promo = Object.fromEntries(
-      SEASONS.map(s => [s.key, s.isLow ? Math.round(p[rt].ultra[s.key] * 0.9) : 0])
-    );
+    p[rt].promo = PRICE_PERIODS.map((pp, i) => pp.isLow ? Math.round(p[rt].ultra[i] * 0.9) : 0);
   });
-
   return p;
 };
 
@@ -283,7 +291,7 @@ export default function App() {
     others: { spa: 5, med: 5 }
   });
 
-  const [calcSeason, setCalcSeason] = useState('low');
+  const [calcSeason, setCalcSeason] = useState(0);
   const [calcRoom, setCalcRoom] = useState('standard');
 
   const [costConfig, setCostConfig] = useState({
@@ -351,7 +359,7 @@ export default function App() {
   const getBlankState = () => ({
     rooms: { standard: 0, comfort: 0, lux: 0 },
     pkgMix: { aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 },
-    prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, Object.fromEntries(PACKAGES.map(pk => [pk.key, Object.fromEntries(SEASONS.map(s => [s.key, 0]))]))  ])),
+    prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, Object.fromEntries(PACKAGES.map(pk => [pk.key, new Array(10).fill(0)]))])),
     roomMonthlyData: MONTHS.map(() => Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { plan: 0, fact: 0 }]))),
     monthlyFact: MONTHS.map(() => ({ occFact: 0, rnFact: 0, revFact: 0 })),
     monthlyGuestCoeff: MONTHS.map(() => 2.0),
@@ -556,7 +564,7 @@ export default function App() {
             let mix = pkgMix[pk.key as keyof typeof pkgMix] / 100;
             if (pk.key === 'promo' && !s.isLow) mix = 0;
 
-            const basePrice = prices[rt.key][pk.key][sKey];
+            const basePrice = prices[rt.key][pk.key][dist.pIdx];
             const price = basePrice * (1 + globalPriceAdj / 100);
 
             const revBase = rn * mix * data.guests * price;          // базовая цена (для затрат)
@@ -699,7 +707,8 @@ export default function App() {
               PACKAGES.forEach(pk => {
                 let mix = pkgMix[pk.key as keyof typeof pkgMix] / 100;
                 if (pk.key === 'promo' && !s.isLow) mix = 0;
-                const price = prices[rt.key][pk.key][s.key];
+                const repPeriod = PRICE_PERIODS.find(pp => pp.sKey === s.key);
+                const price = repPeriod !== undefined ? prices[rt.key][pk.key][repPeriod.pIdx] : 0;
                 sRev += rn * mix * seasonData[s.key].guests * price;
               });
             });
@@ -721,34 +730,23 @@ export default function App() {
   const formatMln = (val: number) => (val / 1000000).toFixed(1) + ' млн ₽';
   const formatThs = (val: number) => (val / 1000).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const handlePriceChange = (rtKey: string, pkKey: string, sKey: string, val: string) => {
+  const handlePriceChange = (rtKey: string, pkKey: string, pIdx: number, val: string) => {
     const newVal = parseInt(val) || 0;
-    setPrices(prev => {
-      const updated = {
-        ...prev,
-        [rtKey]: {
-          ...prev[rtKey],
-          [pkKey]: { ...prev[rtKey][pkKey], [sKey]: newVal }
-        }
-      };
-
-      // If the changed package is the base for promo, update promo too
-      if (pkKey === promoBasePkg) {
-        updated[rtKey].promo = Object.fromEntries(
-          SEASONS.map(s => [s.key, s.isLow ? Math.round(updated[rtKey][promoBasePkg][s.key] * (1 - promoDiscount / 100)) : 0])
-        );
-      }
-
-      return updated;
-    });
+    setPrices((prev: any) => ({
+      ...prev,
+      [rtKey]: {
+        ...prev[rtKey],
+        [pkKey]: prev[rtKey][pkKey].map((v: number, i: number) => i === pIdx ? newVal : v),
+      },
+    }));
   };
 
   useEffect(() => {
-    setPrices(prev => {
+    setPrices((prev: any) => {
       const updated = { ...prev };
       ROOM_TYPES.forEach(rt => {
-        updated[rt.key].promo = Object.fromEntries(
-          SEASONS.map(s => [s.key, s.isLow ? Math.round(updated[rt.key][promoBasePkg][s.key] * (1 - promoDiscount / 100)) : 0])
+        updated[rt.key].promo = PRICE_PERIODS.map((pp, i) =>
+          pp.isLow ? Math.round(updated[rt.key][promoBasePkg][i] * (1 - promoDiscount / 100)) : 0
         );
       });
       return updated;
@@ -3933,64 +3931,48 @@ export default function App() {
                     Печать Прейскуранта
                   </button>
                 </div>
-                {seasons.map((s) => (
-                  <div key={s.key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                      <div className="flex items-center gap-4 flex-1">
-                        <input
-                          type="text"
-                          value={s.name}
-                          onChange={(e) => handleSeasonPeriodChange(s.key, 'name', e.target.value)}
-                          className="text-sm font-bold text-slate-700 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-all"
-                        />
-                        <input
-                          type="text"
-                          value={s.dates}
-                          onChange={(e) => handleSeasonPeriodChange(s.key, 'dates', e.target.value)}
-                          className="text-xs font-normal text-slate-400 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full data-table">
-                        <thead>
-                          <tr>
-                            <th className="w-48">Категория</th>
-                            {PACKAGES.map(pk => (
-                              <th key={pk.key} className="text-center">
-                                {pk.short}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full data-table">
+                      <thead>
+                        <tr>
+                          <th className="w-48">Категория / Пакет</th>
+                          {PRICE_PERIODS.map((pp) => (
+                            <th key={pp.pIdx} className="text-center">
+                              <div className="text-[8px] leading-tight whitespace-pre-wrap text-center">{pp.dates.replace(/ \/ /g, '\n')}</div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ROOM_TYPES.map(rt => (
+                          PACKAGES.map(pk => (
+                            <tr key={`${rt.key}-${pk.key}`}>
+                              <td className="font-semibold text-slate-700">
+                                {rt.label} · {pk.short}
                                 {pk.key === 'promo' && (
-                                  <div className="text-[8px] font-normal text-slate-400 mt-1">
-                                    -{promoDiscount}% от {PACKAGES.find(p => p.key === promoBasePkg)?.short}
-                                  </div>
+                                  <span className="text-[8px] font-normal text-slate-400 ml-1">-{promoDiscount}% от {PACKAGES.find(p => p.key === promoBasePkg)?.short}</span>
                                 )}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ROOM_TYPES.map(rt => (
-                            <tr key={rt.key}>
-                              <td className="font-semibold text-slate-700">{rt.label}</td>
-                              {PACKAGES.map(pk => (
-                                <td key={pk.key} className="text-center">
+                              </td>
+                              {PRICE_PERIODS.map((pp) => (
+                                <td key={pp.pIdx} className="text-center">
                                   <input
                                     type="number"
-                                    value={prices[rt.key][pk.key][s.key] || ''}
+                                    value={prices[rt.key][pk.key][pp.pIdx] || ''}
                                     placeholder="—"
-                                    onChange={(e) => handlePriceChange(rt.key, pk.key, s.key, e.target.value)}
+                                    onChange={(e) => handlePriceChange(rt.key, pk.key, pp.pIdx, e.target.value)}
                                     disabled={pk.key === 'promo'}
-                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][s.key] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][pp.pIdx] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   />
                                 </td>
                               ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
+                </div>
               </motion.div>
             )}
 
@@ -4209,8 +4191,8 @@ export default function App() {
                 <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 print:shadow-none print:border-none">
                   <div className="flex justify-between items-center mb-8 no-print">
                     <div className="flex gap-4">
-                      <select value={calcSeason} onChange={(e) => setCalcSeason(e.target.value)} className="border rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
-                        {SEASONS.map(s => <option key={s.key} value={s.key}>{s.name} ({s.dates})</option>)}
+                      <select value={calcSeason} onChange={(e) => setCalcSeason(parseInt(e.target.value))} className="border rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                        {PRICE_PERIODS.map(pp => <option key={pp.pIdx} value={pp.pIdx}>{pp.dates}</option>)}
                       </select>
                       <select value={calcRoom} onChange={(e) => setCalcRoom(e.target.value)} className="border rounded-lg px-3 py-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
                         {ROOM_TYPES.map(rt => <option key={rt.key} value={rt.key}>{rt.label}</option>)}
@@ -4224,7 +4206,7 @@ export default function App() {
                   <div className="text-center mb-8">
                     <h1 className="text-xl font-black uppercase tracking-tight">Калькуляционная карта тарифов</h1>
                     <p className="text-sm text-slate-500 uppercase font-bold tracking-widest">
-                      {ROOM_TYPES.find(r => r.key === calcRoom)?.label} · {SEASONS.find(s => s.key === calcSeason)?.name} ({SEASONS.find(s => s.key === calcSeason)?.dates})
+                      {ROOM_TYPES.find(r => r.key === calcRoom)?.label} · {PRICE_PERIODS[calcSeason]?.dates}
                     </p>
                   </div>
 
