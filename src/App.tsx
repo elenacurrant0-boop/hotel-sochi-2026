@@ -573,9 +573,19 @@ export default function App() {
           mBedDays += bd;
           mBedDaysFact += bdFact;
           
+          // Effective mix: zero PROMO in non-low seasons, then normalize to 100%
+          const rawMixes: Record<string, number> = {};
+          let totalRawMix = 0;
           PACKAGES.forEach(pk => {
-            let mix = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
-            if (pk.key === 'promo' && !s.isLow) mix = 0;
+            let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
+            if (pk.key === 'promo' && !s.isLow) m = 0;
+            rawMixes[pk.key] = m;
+            totalRawMix += m;
+          });
+          const mixNorm = totalRawMix > 0 ? 1 / totalRawMix : 0;
+
+          PACKAGES.forEach(pk => {
+            const mix = rawMixes[pk.key] * mixNorm;
 
             const basePrice = prices[rt.key][pk.key][dist.pIdx];
             const price = basePrice * (1 + globalPriceAdj / 100);
@@ -717,9 +727,19 @@ export default function App() {
               sRN += rn;
               sBedDays += rn * seasonData[s.key].guests;
 
+              // Effective mix: zero PROMO in non-low seasons, normalize to 100%
+              const sRawMixes: Record<string, number> = {};
+              let sTotalRaw = 0;
               PACKAGES.forEach(pk => {
-                let mix = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
-                if (pk.key === 'promo' && !s.isLow) mix = 0;
+                let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
+                if (pk.key === 'promo' && !s.isLow) m = 0;
+                sRawMixes[pk.key] = m;
+                sTotalRaw += m;
+              });
+              const sMixNorm = sTotalRaw > 0 ? 1 / sTotalRaw : 0;
+
+              PACKAGES.forEach(pk => {
+                const mix = sRawMixes[pk.key] * sMixNorm;
                 const repPeriod = PRICE_PERIODS.find(pp => pp.sKey === s.key);
                 const price = repPeriod !== undefined ? prices[rt.key][pk.key][repPeriod.pIdx] : 0;
                 sRev += rn * mix * seasonData[s.key].guests * price;
