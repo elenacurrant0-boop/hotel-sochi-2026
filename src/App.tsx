@@ -27,7 +27,8 @@ import {
   PieChart,
   Stethoscope,
   Layers,
-  Lock
+  Lock,
+  Table2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -333,6 +334,8 @@ export default function App() {
       }, 0) / m.days).toFixed(2))
     )
   );
+
+  const [detailMonth, setDetailMonth] = useState(2); // default: Март
 
   const [promoBasePkg, setPromoBasePkg] = useState('ultra');
   const [promoDiscount, setPromoDiscount] = useState(10);
@@ -1243,6 +1246,7 @@ export default function App() {
               roles: ['ADMIN', 'OWNER', 'DEMO'],
               color: 'text-purple-600',
               items: [
+                { id: 'detail', label: 'Детальный расчёт', icon: Table2, demoLocked: true },
                 { id: 'report', label: 'Отчет Аналитику', icon: Printer, demoLocked: true },
                 { id: 'marketing', label: 'Аналитик (ИИ)', icon: Sparkles, demoLocked: true },
                 { id: 'kpi', label: 'Операционка (KPI)', icon: Activity, demoLocked: true },
@@ -4393,6 +4397,334 @@ export default function App() {
                       <p>Дата: {new Date().toLocaleDateString('ru-RU')}</p>
                     </div>
                   </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'detail' && (
+              <motion.div
+                key="detail"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                  <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
+                    <Table2 className="text-indigo-500" size={22} />
+                    Детальный расчёт
+                  </h2>
+                  <p className="text-sm text-slate-500 mb-5">
+                    Полная цепочка: RN → Пакет → Цена → × Гостей → × КоэфСег → Выручка
+                  </p>
+
+                  {/* Month selector */}
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {MONTHS.map((mo, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setDetailMonth(i)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          detailMonth === i
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {mo.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {(() => {
+                    const mIdx = detailMonth;
+                    const mo = MONTHS[mIdx];
+
+                    // Segment weighted coefficient
+                    const segWeightedCoeff = (['direct', 'to', 'fss', 'corp', 'ota'] as const).reduce((acc, segKey) => {
+                      const share = (segmentData[mIdx] as any)[segKey]?.plan / 100 || 0;
+                      const coeff = (segmentCoeffs as any)[segKey] / 100;
+                      return acc + share * coeff;
+                    }, 0) || 1;
+
+                    const SEG_LABELS: Record<string, string> = { direct: 'Прямые', to: 'ТО', fss: 'ФСС', corp: 'Корп', ota: 'OTA' };
+
+                    return (
+                      <>
+                        {/* Info cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                          <div className="bg-slate-50 rounded-xl p-3">
+                            <p className="text-[10px] uppercase text-slate-400 font-bold mb-1">Месяц</p>
+                            <p className="font-bold text-slate-900">{mo.name} · {mo.days} дней</p>
+                          </div>
+                          <div className="bg-indigo-50 rounded-xl p-3">
+                            <p className="text-[10px] uppercase text-indigo-400 font-bold mb-1">КоэфСегментов</p>
+                            <p className="font-black text-indigo-700 text-2xl leading-none">{segWeightedCoeff.toFixed(3)}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">множитель к цене гросс</p>
+                          </div>
+                          <div className="bg-slate-50 rounded-xl p-3 col-span-2">
+                            <p className="text-[10px] uppercase text-slate-400 font-bold mb-2">Вклад сегментов</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1">
+                              {(['direct', 'to', 'fss', 'corp', 'ota'] as const).map(sk => {
+                                const share = (segmentData[mIdx] as any)[sk]?.plan ?? 0;
+                                const coeff = (segmentCoeffs as any)[sk];
+                                return (
+                                  <span key={sk} className="text-xs text-slate-600">
+                                    <span className="font-semibold">{SEG_LABELS[sk]}</span>{' '}
+                                    {share}%<span className="text-slate-400">×{coeff}%</span>
+                                    <span className="text-indigo-500 font-semibold ml-1">= {((share / 100) * (coeff / 100)).toFixed(3)}</span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Price periods in this month */}
+                        <div className="mb-6">
+                          <p className="text-[10px] uppercase text-slate-400 font-bold mb-2">Ценовые периоды в {mo.name}</p>
+                          <div className="overflow-x-auto rounded-xl border border-slate-200">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-slate-800 text-white">
+                                  <th className="py-2 px-3 text-left font-semibold">Период</th>
+                                  <th className="py-2 px-3 text-left font-semibold">Даты</th>
+                                  <th className="py-2 px-3 text-left font-semibold">Сезон</th>
+                                  <th className="py-2 px-3 text-center font-semibold">Дней</th>
+                                  <th className="py-2 px-3 text-center font-semibold">ПРОМО</th>
+                                  {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
+                                    <th key={rt.key} colSpan={2} className="py-2 px-3 text-center font-semibold border-l border-slate-600">{rt.label}</th>
+                                  ))}
+                                </tr>
+                                <tr className="bg-slate-700 text-slate-300">
+                                  <th></th><th></th><th></th><th></th><th></th>
+                                  {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
+                                    <React.Fragment key={rt.key}>
+                                      <th className="py-1 px-3 text-center border-l border-slate-600">Ultra ₽</th>
+                                      <th className="py-1 px-3 text-center">Med ₽</th>
+                                    </React.Fragment>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {mo.distribution.map((dist, dIdx) => {
+                                  const s = seasons.find(sv => sv.key === dist.sKey)!;
+                                  return (
+                                    <tr key={dIdx} className="border-t border-slate-100 even:bg-slate-50">
+                                      <td className="py-2 px-3 font-mono font-bold text-slate-500">P{dist.pIdx}</td>
+                                      <td className="py-2 px-3 text-slate-500">{PRICE_PERIODS[dist.pIdx].dates}</td>
+                                      <td className="py-2 px-3 font-medium">{s.name}</td>
+                                      <td className="py-2 px-3 text-center font-bold">{dist.days}</td>
+                                      <td className={`py-2 px-3 text-center font-semibold ${s.isLow ? 'text-emerald-600' : 'text-red-400'}`}>
+                                        {s.isLow ? '✓ вкл' : '✗ выкл'}
+                                      </td>
+                                      {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
+                                        <React.Fragment key={rt.key}>
+                                          <td className="py-2 px-3 text-right text-indigo-600 font-mono border-l border-slate-100">
+                                            {((prices[rt.key]?.ultra?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100)).toLocaleString('ru')}
+                                          </td>
+                                          <td className="py-2 px-3 text-right text-orange-600 font-mono">
+                                            {((prices[rt.key]?.med?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100)).toLocaleString('ru')}
+                                          </td>
+                                        </React.Fragment>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Per room type calculation tables */}
+                        {ROOM_TYPES.map(rt => {
+                          const roomCount = rooms[rt.key as keyof typeof rooms] || 0;
+                          if (roomCount === 0) return null;
+
+                          const occPlan = Math.min(100, Math.max(0, roomMonthlyData[mIdx][rt.key].plan + globalOccAdj));
+                          const totalRN = roomCount * mo.days * (occPlan / 100);
+
+                          // Aggregate per package across all periods
+                          const pkgAgg: Record<string, { rn: number; rev: number; priceWeighted: number; guestWeighted: number }> = {};
+                          PACKAGES.forEach(pk => { pkgAgg[pk.key] = { rn: 0, rev: 0, priceWeighted: 0, guestWeighted: 0 }; });
+
+                          mo.distribution.forEach(dist => {
+                            const sv = seasons.find(s => s.key === dist.sKey)!;
+                            const periodRN = roomCount * dist.days * (occPlan / 100);
+                            const guests = seasonData[sv.key].guests;
+
+                            const rawMixes: Record<string, number> = {};
+                            let totalRaw = 0;
+                            PACKAGES.forEach(pk => {
+                              let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
+                              if (pk.key === 'promo' && !sv.isLow) m = 0;
+                              rawMixes[pk.key] = m;
+                              totalRaw += m;
+                            });
+                            const mixNorm = totalRaw > 0 ? 1 / totalRaw : 0;
+
+                            PACKAGES.forEach(pk => {
+                              const effMix = rawMixes[pk.key] * mixNorm;
+                              const price = (prices[rt.key]?.[pk.key]?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100);
+                              const rnPkg = periodRN * effMix;
+                              const rev = rnPkg * guests * price * segWeightedCoeff;
+                              pkgAgg[pk.key].rn += rnPkg;
+                              pkgAgg[pk.key].rev += rev;
+                              pkgAgg[pk.key].priceWeighted += price * rnPkg;
+                              pkgAgg[pk.key].guestWeighted += guests * rnPkg;
+                            });
+                          });
+
+                          const totalRev = PACKAGES.reduce((s, pk) => s + pkgAgg[pk.key].rev, 0);
+                          const monthADR = totalRN > 0 ? totalRev / totalRN : 0;
+
+                          return (
+                            <div key={rt.key} className="mb-5 rounded-xl overflow-hidden border border-slate-200">
+                              {/* Room type header */}
+                              <div className="bg-slate-900 text-white px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <span className="font-bold text-base">{rt.label}</span>
+                                <span className="text-slate-400 text-sm">Комнат: {roomCount}</span>
+                                <span className="text-slate-400 text-sm">Загрузка: {occPlan}%</span>
+                                <span className="text-slate-300 font-semibold text-sm">RN = {Math.round(totalRN).toLocaleString('ru')}</span>
+                                <span className="ml-auto text-emerald-400 font-semibold text-sm">ADR нетто ≈ {Math.round(monthADR).toLocaleString('ru')} ₽</span>
+                                <span className="text-emerald-300 font-black text-lg">{(totalRev / 1000).toFixed(1)} тыс.₽</span>
+                              </div>
+
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="bg-slate-100 text-slate-600 text-[10px] uppercase tracking-wider">
+                                      <th className="py-2 px-3 text-left">Пакет</th>
+                                      <th className="py-2 px-3 text-center">План %</th>
+                                      <th className="py-2 px-3 text-center">Эфф %</th>
+                                      <th className="py-2 px-3 text-right">RN пакета</th>
+                                      <th className="py-2 px-3 text-right">Цена ₽</th>
+                                      <th className="py-2 px-3 text-center">Гостей</th>
+                                      <th className="py-2 px-3 text-center">× КоэфСег</th>
+                                      <th className="py-2 px-3 text-right">ADR нетто</th>
+                                      <th className="py-2 px-3 text-right">Выручка тыс.₽</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {PACKAGES.map(pk => {
+                                      const agg = pkgAgg[pk.key];
+                                      const avgPrice = agg.rn > 0 ? agg.priceWeighted / agg.rn : 0;
+                                      const avgGuests = agg.rn > 0 ? agg.guestWeighted / agg.rn : 0;
+                                      const adrNetto = avgPrice * avgGuests * segWeightedCoeff;
+                                      const planMix = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX];
+                                      const effMixPct = totalRN > 0 ? (agg.rn / totalRN) * 100 : 0;
+                                      const isPromoOff = pk.key === 'promo' && mo.distribution.every(d => {
+                                        const sv = seasons.find(s => s.key === d.sKey)!;
+                                        return !sv.isLow;
+                                      });
+
+                                      return (
+                                        <tr key={pk.key} className={`border-b border-slate-100 hover:bg-slate-50 ${agg.rn < 0.01 && planMix === 0 ? 'opacity-30' : ''}`}>
+                                          <td className={`py-2 px-3 font-semibold ${pk.color}`}>
+                                            {pk.short}
+                                            {isPromoOff && <span className="ml-1 text-[10px] text-red-400 font-normal">(не сезон)</span>}
+                                          </td>
+                                          <td className="py-2 px-3 text-center text-slate-500">{planMix}%</td>
+                                          <td className={`py-2 px-3 text-center font-semibold ${isPromoOff ? 'text-red-400' : effMixPct > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
+                                            {effMixPct.toFixed(1)}%
+                                          </td>
+                                          <td className="py-2 px-3 text-right text-slate-600">{Math.round(agg.rn).toLocaleString('ru')}</td>
+                                          <td className="py-2 px-3 text-right font-mono text-slate-700">
+                                            {avgPrice > 0 ? Math.round(avgPrice).toLocaleString('ru') : '—'}
+                                          </td>
+                                          <td className="py-2 px-3 text-center text-slate-500">
+                                            {avgGuests > 0 ? avgGuests.toFixed(1) : '—'}
+                                          </td>
+                                          <td className="py-2 px-3 text-center font-semibold text-indigo-600">
+                                            {agg.rn > 0.01 ? segWeightedCoeff.toFixed(3) : '—'}
+                                          </td>
+                                          <td className="py-2 px-3 text-right font-mono font-semibold text-slate-800">
+                                            {adrNetto > 0 ? Math.round(adrNetto).toLocaleString('ru') : '—'}
+                                          </td>
+                                          <td className={`py-2 px-3 text-right font-bold ${agg.rev > 0 ? 'text-emerald-700' : 'text-slate-300'}`}>
+                                            {agg.rev > 0 ? (agg.rev / 1000).toFixed(1) : '0,0'}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                    {/* Total row */}
+                                    <tr className="bg-slate-50 border-t-2 border-slate-300">
+                                      <td className="py-2 px-3 font-black uppercase text-[10px] text-slate-500">Итого</td>
+                                      <td className="py-2 px-3 text-center text-slate-400 text-xs">100%</td>
+                                      <td className="py-2 px-3 text-center font-bold text-slate-700 text-xs">
+                                        {(PACKAGES.reduce((s, pk) => s + (totalRN > 0 ? pkgAgg[pk.key].rn / totalRN * 100 : 0), 0)).toFixed(1)}%
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-bold">{Math.round(totalRN).toLocaleString('ru')}</td>
+                                      <td className="py-2 px-3 text-right text-slate-400">—</td>
+                                      <td className="py-2 px-3 text-center text-slate-400">—</td>
+                                      <td className="py-2 px-3 text-center text-slate-400">—</td>
+                                      <td className="py-2 px-3 text-right font-bold font-mono">{Math.round(monthADR).toLocaleString('ru')}</td>
+                                      <td className="py-2 px-3 text-right font-black text-emerald-700 text-base">{(totalRev / 1000).toFixed(1)}</td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                              <div className="bg-slate-50 px-4 py-2 text-[11px] text-slate-400 border-t border-slate-100">
+                                Формула: <span className="font-mono">RN_пакета × Цена × Гостей × КоэфСег({segWeightedCoeff.toFixed(3)}) = Выручка</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Grand total for the month */}
+                        {(() => {
+                          let grandRev = 0;
+                          let grandRN = 0;
+                          ROOM_TYPES.forEach(rt => {
+                            const roomCount = rooms[rt.key as keyof typeof rooms] || 0;
+                            if (roomCount === 0) return;
+                            const occPlan = Math.min(100, Math.max(0, roomMonthlyData[mIdx][rt.key].plan + globalOccAdj));
+                            const totalRN = roomCount * mo.days * (occPlan / 100);
+                            grandRN += totalRN;
+                            mo.distribution.forEach(dist => {
+                              const sv = seasons.find(s => s.key === dist.sKey)!;
+                              const periodRN = roomCount * dist.days * (occPlan / 100);
+                              const guests = seasonData[sv.key].guests;
+                              const rawMixes: Record<string, number> = {};
+                              let totalRaw = 0;
+                              PACKAGES.forEach(pk => {
+                                let m = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
+                                if (pk.key === 'promo' && !sv.isLow) m = 0;
+                                rawMixes[pk.key] = m;
+                                totalRaw += m;
+                              });
+                              const mixNorm = totalRaw > 0 ? 1 / totalRaw : 0;
+                              PACKAGES.forEach(pk => {
+                                const effMix = rawMixes[pk.key] * mixNorm;
+                                const price = (prices[rt.key]?.[pk.key]?.[dist.pIdx] || 0) * (1 + globalPriceAdj / 100);
+                                grandRev += periodRN * effMix * guests * price * segWeightedCoeff;
+                              });
+                            });
+                          });
+                          const grandADR = grandRN > 0 ? grandRev / grandRN : 0;
+                          return (
+                            <div className="mt-2 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 flex flex-wrap gap-6 items-center">
+                              <div>
+                                <p className="text-[10px] uppercase text-indigo-400 font-bold">Итого за {mo.name}</p>
+                                <p className="text-2xl font-black text-indigo-700">{(grandRev / 1000000).toFixed(2)} млн ₽</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase text-slate-400 font-bold">Всего RN</p>
+                                <p className="text-lg font-bold text-slate-700">{Math.round(grandRN).toLocaleString('ru')}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase text-slate-400 font-bold">ADR нетто (ср.)</p>
+                                <p className="text-lg font-bold text-slate-700">{Math.round(grandADR).toLocaleString('ru')} ₽</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase text-slate-400 font-bold">КоэфСегментов</p>
+                                <p className="text-lg font-bold text-indigo-600">{segWeightedCoeff.toFixed(3)}</p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
                 </div>
               </motion.div>
             )}
