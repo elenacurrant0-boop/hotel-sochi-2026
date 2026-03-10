@@ -238,7 +238,8 @@ export default function App() {
     setIsSandbox(false);
   };
   const [rooms, setRooms] = useState({ standard: 227, comfort: 240, lux: 0 });
-  const [pkgMix, setPkgMix] = useState({ aqua_bb: 2, aqua_hb: 3, aqua_fb: 5, ultra: 40, spa: 20, med: 25, promo: 5 });
+  const DEFAULT_PKG_MIX = { aqua_bb: 2, aqua_hb: 3, aqua_fb: 5, ultra: 40, spa: 20, med: 25, promo: 5 };
+  const [pkgMixByMonth, setPkgMixByMonth] = useState<Array<typeof DEFAULT_PKG_MIX>>(MONTHS.map(() => ({ ...DEFAULT_PKG_MIX })));
   const [prices, setPrices] = useState(initialPrices());
   const [seasons, setSeasons] = useState(SEASONS);
   const [targetGOPMargin, setTargetGOPMargin] = useState(40); // Target GOP Margin %
@@ -358,7 +359,7 @@ export default function App() {
   // --- Blank state for demo users ---
   const getBlankState = () => ({
     rooms: { standard: 0, comfort: 0, lux: 0 },
-    pkgMix: { aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 },
+    pkgMixByMonth: MONTHS.map(() => ({ aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 })),
     prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, Object.fromEntries(PACKAGES.map(pk => [pk.key, new Array(10).fill(0)]))])),
     roomMonthlyData: MONTHS.map(() => Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { plan: 0, fact: 0 }]))),
     monthlyFact: MONTHS.map(() => ({ occFact: 0, rnFact: 0, revFact: 0 })),
@@ -377,7 +378,7 @@ export default function App() {
 
   // --- Data Sync Logic ---
   const getAllState = () => ({
-    rooms, pkgMix, prices, seasons, seasonData, segmentData, segmentCoeffs,
+    rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData, segmentCoeffs,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff
   });
@@ -385,7 +386,11 @@ export default function App() {
   const setAllState = (data: any) => {
     if (!data) return;
     if (data.rooms) setRooms(data.rooms);
-    if (data.pkgMix) setPkgMix(data.pkgMix);
+    // Migration: old format had single pkgMix object → convert to 12-month array
+    if (data.pkgMix && !data.pkgMixByMonth) {
+      data.pkgMixByMonth = MONTHS.map(() => ({ ...data.pkgMix }));
+    }
+    if (data.pkgMixByMonth) setPkgMixByMonth(data.pkgMixByMonth);
     if (data.prices) setPrices(data.prices);
     if (data.seasons) setSeasons(data.seasons);
     if (data.seasonData) setSeasonData(data.seasonData);
@@ -442,7 +447,7 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [
-    rooms, pkgMix, prices, seasons, seasonData, segmentData,
+    rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, isSandbox, userRole, expenseModel, monthlyFact, monthlyGuestCoeff
   ]);
@@ -569,7 +574,7 @@ export default function App() {
           mBedDaysFact += bdFact;
           
           PACKAGES.forEach(pk => {
-            let mix = pkgMix[pk.key as keyof typeof pkgMix] / 100;
+            let mix = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
             if (pk.key === 'promo' && !s.isLow) mix = 0;
 
             const basePrice = prices[rt.key][pk.key][dist.pIdx];
@@ -713,7 +718,7 @@ export default function App() {
               sBedDays += rn * seasonData[s.key].guests;
 
               PACKAGES.forEach(pk => {
-                let mix = pkgMix[pk.key as keyof typeof pkgMix] / 100;
+                let mix = pkgMixByMonth[mIdx][pk.key as keyof typeof DEFAULT_PKG_MIX] / 100;
                 if (pk.key === 'promo' && !s.isLow) mix = 0;
                 const repPeriod = PRICE_PERIODS.find(pp => pp.sKey === s.key);
                 const price = repPeriod !== undefined ? prices[rt.key][pk.key][repPeriod.pIdx] : 0;
@@ -733,7 +738,13 @@ export default function App() {
       totalInternalMedRev, totalFullMedRev, totalRoomRev, totalBudget,
       totalADR, totalRevPAR, totalTRevPAR
     };
-  }, [rooms, pkgMix, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff]);
+  }, [rooms, pkgMixByMonth, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff]);
+
+  // Annual average package mix (for display in reports/tables)
+  const avgPkgMix = Object.fromEntries(PACKAGES.map(pk => [
+    pk.key,
+    Math.round(pkgMixByMonth.reduce((s, m) => s + m[pk.key as keyof typeof DEFAULT_PKG_MIX], 0) / 12)
+  ]));
 
   const formatMln = (val: number) => (val / 1000000).toFixed(1) + ' млн ₽';
   const formatThs = (val: number) => (val / 1000).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1725,35 +1736,66 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Быстрая настройка микса */}
+                {/* Помесячный микс пакетных программ */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                    <Briefcase size={16} /> Структура продаж (Mix)
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-                    {PACKAGES.map(pk => (
-                      <div key={pk.key} className={`p-4 rounded-xl border ${pk.bg} border-transparent hover:border-slate-200 transition-all`}>
-                        <p className={`text-[9px] font-black uppercase mb-2 ${pk.color}`}>{pk.short}</p>
-                        <div className="flex items-center gap-1">
-                          <input 
-                            type="number" 
-                            value={pkgMix[pk.key as keyof typeof pkgMix]}
-                            onChange={(e) => setPkgMix(prev => ({ ...prev, [pk.key]: parseInt(e.target.value) || 0 }))}
-                            className="w-full bg-transparent text-xl font-black outline-none"
-                          />
-                          <span className="text-xs font-bold opacity-30">%</span>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                      <Briefcase size={16} /> Структура продаж по месяцам (Mix, %)
+                    </h3>
+                    <button
+                      onClick={() => setPkgMixByMonth(prev => prev.map(() => ({ ...prev[0] })))}
+                      className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+                    >
+                      Янв → все месяцы
+                    </button>
                   </div>
-                  <div className="mt-6 flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${(Object.values(pkgMix) as number[]).reduce((a, b) => a + b, 0) === 100 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                      <span className="text-xs font-bold text-slate-500 uppercase">Контрольная сумма микса:</span>
-                    </div>
-                    <span className={`text-xl font-black ${(Object.values(pkgMix) as number[]).reduce((a, b) => a + b, 0) === 100 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {(Object.values(pkgMix) as number[]).reduce((a, b) => a + b, 0)}%
-                    </span>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900 text-white">
+                          <th className="py-2 px-3 text-left font-semibold">Месяц</th>
+                          {PACKAGES.map(pk => <th key={pk.key} className={`py-2 px-2 text-center font-bold ${pk.color}`}>{pk.short}</th>)}
+                          <th className="py-2 px-3 text-center font-semibold text-slate-300">Итого</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((m, mIdx) => {
+                          const mix = pkgMixByMonth[mIdx];
+                          const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+                          const ok = Math.abs(total - 100) < 0.1;
+                          return (
+                            <tr key={mIdx} className={`border-b border-slate-100 ${mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                              <td className="py-1.5 px-3 font-semibold text-slate-700">{m.name}</td>
+                              {PACKAGES.map(pk => (
+                                <td key={pk.key} className="py-1 px-2 text-center">
+                                  <input
+                                    type="number"
+                                    min={0} max={100}
+                                    value={mix[pk.key as keyof typeof DEFAULT_PKG_MIX]}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 0;
+                                      setPkgMixByMonth(prev => prev.map((mo, i) => i === mIdx ? { ...mo, [pk.key]: val } : mo));
+                                    }}
+                                    className={`w-12 text-center font-bold bg-transparent outline-none border-b border-transparent focus:border-indigo-400 ${pk.color}`}
+                                  />
+                                </td>
+                              ))}
+                              <td className={`py-1.5 px-3 text-center font-black ${ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {total}%
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-slate-100 border-t-2 border-slate-300">
+                          <td className="py-2 px-3 font-black uppercase text-[10px] text-slate-500">Среднее</td>
+                          {PACKAGES.map(pk => {
+                            const avg = Math.round(pkgMixByMonth.reduce((s, m) => s + m[pk.key as keyof typeof DEFAULT_PKG_MIX], 0) / 12);
+                            return <td key={pk.key} className={`py-2 px-2 text-center font-black ${pk.color}`}>{avg}%</td>;
+                          })}
+                          <td className="py-2 px-3 text-center font-black text-slate-400">—</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </motion.div>
@@ -1909,7 +1951,7 @@ export default function App() {
                             return (
                               <tr key={pk.key}>
                                 <td className="p-2 border border-slate-200 font-bold">{pk.short}</td>
-                                <td className="p-2 border border-slate-200 text-center">{pkgMix[pk.key as keyof typeof pkgMix]}%</td>
+                                <td className="p-2 border border-slate-200 text-center">{avgPkgMix[pk.key] ?? 0}%</td>
                                 <td className="p-2 border border-slate-200 text-center font-bold text-indigo-600">{fact.share > 0 ? fact.share + '%' : '—'}</td>
                                 <td className="p-2 border border-slate-200 text-right">{(planRev / 1000000).toFixed(2)}</td>
                                 <td className="p-2 border border-slate-200 text-right font-bold text-emerald-600">{fact.rev > 0 ? (fact.rev / 1000000).toFixed(2) : '—'}</td>
@@ -2652,7 +2694,7 @@ export default function App() {
                             return (
                               <tr key={pk.key} className="border-b border-slate-50">
                                 <td className="py-2 font-bold">{pk.short}</td>
-                                <td className="text-center text-slate-400">{pkgMix[pk.key as keyof typeof pkgMix]}%</td>
+                                <td className="text-center text-slate-400">{avgPkgMix[pk.key] ?? 0}%</td>
                                 <td className="text-center">
                                   <input type="number" value={fact.share || ''} placeholder="0" onChange={(e) => handlePkgFactChange(pk.key, 'share', e.target.value)} className="w-12 text-center border-b border-slate-200 outline-none focus:border-indigo-500" />
                                 </td>
@@ -2693,34 +2735,26 @@ export default function App() {
                   </div>
 
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
                       <Activity size={16} className="text-indigo-500" />
-                      Микс программ (План %)
+                      Микс программ (Среднегодовой, %)
                     </h3>
-                    <div className="space-y-4">
-                      {PACKAGES.map(pk => (
-                        <div key={pk.key} className={`p-3 rounded-lg ${pk.bg} border border-transparent`}>
-                          <div className="flex justify-between items-center">
-                            <p className={`text-[10px] font-bold uppercase tracking-wider ${pk.color}`}>{pk.label}</p>
-                            {pk.restricted && <span className="text-[8px] bg-red-100 text-red-600 px-1 rounded">Только Низкий/Межсезонье</span>}
+                    <p className="text-[10px] text-slate-400 mb-4">Настройка — в Панели управления (по месяцам)</p>
+                    <div className="space-y-3">
+                      {PACKAGES.map(pk => {
+                        const avg = avgPkgMix[pk.key] ?? 0;
+                        return (
+                          <div key={pk.key} className="flex justify-between items-center">
+                            <span className={`text-xs font-bold ${pk.color}`}>{pk.label}</span>
+                            <span className="text-sm font-black text-slate-700">{avg}%</span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <input 
-                              type="number" 
-                              value={pkgMix[pk.key as keyof typeof pkgMix]}
-                              onChange={(e) => setPkgMix(prev => ({ ...prev, [pk.key]: parseInt(e.target.value) || 0 }))}
-                              className="w-12 text-lg font-bold bg-transparent outline-none"
-                            />
-                            <span className="text-slate-400 font-bold">%</span>
-                            {pk.maxShare && <span className="text-[10px] text-slate-400 ml-auto">Макс: {pk.maxShare}%</span>}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="mt-4 p-3 bg-slate-50 rounded-lg flex justify-between items-center">
-                      <span className="text-xs text-slate-500">Сумма:</span>
-                      <span className={`text-sm font-bold ${Object.values(pkgMix).reduce((a: number, b: number) => a + b, 0) === 100 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {Object.values(pkgMix).reduce((a: number, b: number) => a + b, 0)}%
+                      <span className="text-xs text-slate-500">Сумма среднего:</span>
+                      <span className="text-sm font-bold text-slate-600">
+                        {Object.values(avgPkgMix).reduce((a, b) => (a as number) + (b as number), 0 as number) as number}%
                       </span>
                     </div>
                   </div>
@@ -3879,8 +3913,8 @@ export default function App() {
                     <div className="space-y-3">
                       {PACKAGES.map(pk => {
                         const pkgRev = totals.byPkgPlan[pk.key as keyof typeof totals.byPkgPlan];
-                        // Estimate bed days for this package: totalBedDays * (pkgMix / 100)
-                        const pkgBD = totals.totalBedDays * (pkgMix[pk.key as keyof typeof pkgMix] / 100);
+                        // Estimate bed days for this package: totalBedDays * (avg annual mix / 100)
+                        const pkgBD = totals.totalBedDays * ((avgPkgMix[pk.key] ?? 0) / 100);
                         const avgPrice = pkgBD > 0 ? pkgRev / pkgBD : 0;
                         return (
                           <div key={pk.key} className="flex justify-between items-center text-sm">
@@ -4009,37 +4043,30 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="grid grid-cols-1 md:grid-cols-2 gap-6"
               >
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                  <h3 className="font-bold mb-1">Управление миксом программ</h3>
-                  {(() => {
-                    const total = (Object.values(pkgMix) as number[]).reduce((a, b) => a + b, 0);
-                    const diff = total - 100;
-                    return (
-                      <div className={`mb-4 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 ${Math.abs(diff) < 0.1 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                        <AlertCircle size={14} />
-                        {Math.abs(diff) < 0.1 ? `Сумма миксов: 100% — корректно` : `Сумма миксов: ${total}% (должно быть 100%). Расхождение: ${diff > 0 ? '+' : ''}${diff.toFixed(0)}%`}
-                      </div>
-                    );
-                  })()}
-                  <div className="space-y-4">
+                <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <Briefcase size={20} className="text-indigo-600 mt-0.5 shrink-0" />
+                    <div>
+                      <h3 className="font-bold text-indigo-900 mb-1">Микс пакетных программ</h3>
+                      <p className="text-sm text-indigo-700 mb-4">Настройка микса перенесена в <b>Панель управления</b> — там можно задать значения по каждому месяцу отдельно и скопировать на весь год.</p>
+                      <button onClick={() => setActiveTab('admin')} className="text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        Перейти в Панель управления →
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2">
                     {PACKAGES.map(pk => {
-                      const isPromo = pk.key === 'promo';
-                      const lowSeasonCount = seasons.filter(s => s.isLow).length;
+                      const avg = avgPkgMix[pk.key] ?? 0;
                       const hasHighSeason = !seasons.every(s => s.isLow);
                       return (
-                        <div key={pk.key} className="flex items-center justify-between">
-                          <div>
-                            <span className="text-sm text-slate-600">{pk.label}</span>
-                            {isPromo && pkgMix.promo > 0 && hasHighSeason && (
-                              <p className="text-[10px] text-amber-600 font-bold mt-0.5 flex items-center gap-1">
-                                <AlertCircle size={10} /> В высокий сезон ПРОМО автоматически обнуляется в расчёте
-                              </p>
+                        <div key={pk.key} className="flex justify-between items-center text-xs">
+                          <span className={`font-bold ${pk.color}`}>{pk.label}</span>
+                          <span className="font-black text-slate-700">
+                            {avg}%
+                            {pk.key === 'promo' && avg > 0 && hasHighSeason && (
+                              <span className="ml-2 text-amber-600 font-normal">(в высокий сезон = 0)</span>
                             )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input type="number" value={pkgMix[pk.key as keyof typeof pkgMix]} onChange={(e) => setPkgMix(prev => ({ ...prev, [pk.key]: parseInt(e.target.value) || 0 }))} className="w-16 text-right font-bold border rounded p-1" />
-                            <span className="text-xs text-slate-400">%</span>
-                          </div>
+                          </span>
                         </div>
                       );
                     })}
