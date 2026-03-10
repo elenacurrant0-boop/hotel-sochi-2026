@@ -408,7 +408,15 @@ export default function App() {
       try {
         const saved = localStorage.getItem('sochi_model_data');
         if (saved) {
-          setAllState(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          // Migrate: if prices use old 5-key object format, reset to initialPrices()
+          const firstRt = Object.values(parsed.prices || {})[0] as any;
+          const firstPk = firstRt ? Object.values(firstRt)[0] : null;
+          const isOldFormat = firstPk && !Array.isArray(firstPk);
+          if (isOldFormat) {
+            parsed.prices = initialPrices();
+          }
+          setAllState(parsed);
           setLastSynced(new Date());
         }
       } catch (err) {
