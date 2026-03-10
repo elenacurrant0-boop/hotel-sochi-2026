@@ -2963,8 +2963,9 @@ export default function App() {
                       <tr className="bg-slate-900 text-white font-bold">
                         <td className="p-2 uppercase text-[10px]">Средняя за период</td>
                         {ROOM_TYPES.map(rt => {
-                          const avgPlan = roomMonthlyData.reduce((acc, m) => acc + m[rt.key].plan, 0) / MONTHS.length;
-                          const avgFact = roomMonthlyData.reduce((acc, m) => acc + m[rt.key].fact, 0) / MONTHS.length;
+                          const totalDays = MONTHS.reduce((a, b) => a + b.days, 0);
+                          const avgPlan = MONTHS.reduce((acc, m, i) => acc + roomMonthlyData[i][rt.key].plan * m.days, 0) / totalDays;
+                          const avgFact = MONTHS.reduce((acc, m, i) => acc + roomMonthlyData[i][rt.key].fact * m.days, 0) / totalDays;
                           return (
                             <React.Fragment key={rt.key}>
                               <td className="text-center border-l border-slate-700 text-indigo-300">{avgPlan.toFixed(1)}%</td>
