@@ -3931,8 +3931,15 @@ export default function App() {
               >
                 <div className="flex justify-between items-center no-print">
                   <h2 className="text-xl font-bold text-slate-900">Прейскурант цен 2026</h2>
-                  <button 
-                    onClick={() => window.print()}
+                  <button
+                    onClick={() => {
+                      const style = document.createElement('style');
+                      style.id = '__pl_landscape__';
+                      style.textContent = '@page { size: A4 landscape; margin: 8mm; }';
+                      document.head.appendChild(style);
+                      window.print();
+                      setTimeout(() => { const el = document.getElementById('__pl_landscape__'); if (el) el.remove(); }, 500);
+                    }}
                     className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-all shadow-sm"
                   >
                     <Printer size={18} />
@@ -3940,13 +3947,13 @@ export default function App() {
                   </button>
                 </div>
                 {PRICE_PERIODS.map((pp) => (
-                  <div key={pp.pIdx} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div key={pp.pIdx} className="pricelist-period-card bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center gap-4">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Период {pp.pIdx + 1}</span>
                       <span className="text-sm font-semibold text-slate-700">{pp.dates}</span>
                       <span className="text-xs text-slate-400 ml-auto">{SEASONS.find(s => s.key === pp.sKey)?.name}</span>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto pricelist-table-wrap">
                       <table className="w-full data-table">
                         <thead>
                           <tr>
