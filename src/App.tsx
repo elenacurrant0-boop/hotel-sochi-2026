@@ -1333,7 +1333,7 @@ export default function App() {
         <main className="flex-1 min-w-0 overflow-y-auto p-3 md:p-8 space-y-6 md:space-y-8">
           
           {userRole !== 'STAFF' && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+            <div className="stats-summary-cards grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
               <StatCard 
                 label="Общий Бюджет" 
                 value={formatMln(totals.totalBudget)} 
@@ -3937,8 +3937,13 @@ export default function App() {
                       style.id = '__pl_landscape__';
                       style.textContent = '@page { size: A4 landscape; margin: 8mm; }';
                       document.head.appendChild(style);
+                      document.body.classList.add('printing-pricelist');
                       window.print();
-                      setTimeout(() => { const el = document.getElementById('__pl_landscape__'); if (el) el.remove(); }, 500);
+                      setTimeout(() => {
+                        const el = document.getElementById('__pl_landscape__');
+                        if (el) el.remove();
+                        document.body.classList.remove('printing-pricelist');
+                      }, 500);
                     }}
                     className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-all shadow-sm"
                   >

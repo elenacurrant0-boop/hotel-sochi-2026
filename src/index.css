@@ -36,16 +36,16 @@
   }
   .pricelist-table-wrap table {
     width: 100% !important;
-    font-size: 9px !important;
+    font-size: 11px !important;
     border-collapse: collapse !important;
   }
   .pricelist-table-wrap table th,
   .pricelist-table-wrap table td {
-    padding: 3px 5px !important;
-    font-size: 9px !important;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
   }
   .pricelist-table-wrap table td input {
-    font-size: 9px !important;
+    font-size: 11px !important;
     font-weight: bold;
     background: transparent !important;
     border: none !important;
@@ -57,6 +57,14 @@
     break-inside: avoid !important;
     box-shadow: none !important;
     border: 1px solid #ccc !important;
+  }
+
+  /* При печати прейскуранта — скрыть хедер и KPI-карточки */
+  body.printing-pricelist header {
+    display: none !important;
+  }
+  body.printing-pricelist .stats-summary-cards {
+    display: none !important;
   }
 }
 
