@@ -28,7 +28,8 @@ import {
   Stethoscope,
   Layers,
   Lock,
-  Table2
+  Table2,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -1282,6 +1283,7 @@ export default function App() {
               items: [
                 { id: 'detail', label: 'Детальный расчёт', icon: Table2, demoLocked: true },
                 { id: 'report', label: 'Отчет Аналитику', icon: Printer, demoLocked: true },
+                { id: 'exec-report', label: 'Пояснительная записка', icon: FileText, roles: ['ADMIN'] },
                 { id: 'marketing', label: 'Аналитик (ИИ)', icon: Sparkles, demoLocked: true },
                 { id: 'kpi', label: 'Операционка (KPI)', icon: Activity, demoLocked: true },
                 { id: 'critical', label: 'Анализ рисков', icon: AlertCircle, demoLocked: true },
@@ -2165,6 +2167,545 @@ export default function App() {
                     <Download size={18} /> Скачать XLSX для финслужбы
                   </button>
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'exec-report' && userRole === 'ADMIN' && (
+              <motion.div
+                key="exec-report"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-0"
+              >
+                {/* Toolbar — скрывается при печати */}
+                <div className="no-print mb-6 flex flex-wrap justify-between items-center gap-4 bg-[#1a1a2e] text-white p-4 rounded-xl shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText size={20} className="text-[#f0a500]" />
+                    <div>
+                      <p className="font-bold text-sm">Пояснительная записка к бюджету 2026</p>
+                      <p className="text-xs text-slate-400">Для защиты перед Ген. директором и Собственником · Только ADMIN</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-2 bg-[#f0a500] text-[#1a1a2e] px-5 py-2 rounded-lg font-bold text-sm hover:bg-[#c8961a] transition-colors"
+                  >
+                    <Printer size={16} /> Печать / Сохранить PDF
+                  </button>
+                </div>
+
+                {/* Основной документ — белый лист A4 */}
+                <div className="print-container bg-white shadow-lg border border-slate-200 max-w-[210mm] mx-auto text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>
+
+                  {/* ═══════════ ОБЛОЖКА ═══════════ */}
+                  <div className="bg-[#1a1a2e] text-white p-10 md:p-14">
+                    <div className="flex justify-between items-start mb-10">
+                      <span className="text-[10px] font-bold uppercase tracking-widest border border-[#f0a500] text-[#f0a500] px-3 py-1 rounded">Конфиденциально</span>
+                      <span className="text-xs text-slate-400">{new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-2" style={{ fontFamily: 'Arial, sans-serif' }}>
+                      Бюджет доходов
+                    </h1>
+                    <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight text-[#f0a500] mb-6" style={{ fontFamily: 'Arial, sans-serif' }}>
+                      на 2026 год
+                    </h2>
+                    <p className="text-sm text-slate-400 mb-10">Aqva SPA Resort — Сочи · {(Object.values(rooms) as number[]).reduce((a, b) => a + b, 0)} номеров</p>
+
+                    {/* KPI-карточки */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="border border-slate-600 rounded-xl p-4">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Базовый бюджет</p>
+                        <p className="text-2xl font-black text-white">{formatMln(totals.totalBudget)}</p>
+                      </div>
+                      <div className="border border-[#f0a500] rounded-xl p-4 bg-[#f0a500]/10">
+                        <p className="text-[10px] uppercase font-bold text-[#f0a500] mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Загрузка (год)</p>
+                        <p className="text-2xl font-black text-white">{totals.totalAvgOcc.toFixed(1)}%</p>
+                      </div>
+                      <div className="border border-slate-600 rounded-xl p-4">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Маржа GOP</p>
+                        <p className="text-2xl font-black text-white">{totals.totalGOPMargin.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-8 md:p-12">
+
+                    {/* ═══════════ 1. ПАРАМЕТРЫ МОДЕЛИ ═══════════ */}
+                    <section className="mb-12 page-break-before">
+                      <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#1a1a2e] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        1. Текущие параметры модели
+                      </h2>
+
+                      {/* Основные KPI */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                        {[
+                          { label: 'Номерной фонд', value: `${(Object.values(rooms) as number[]).reduce((a, b) => a + b, 0)} ном.` },
+                          { label: 'Средн. загрузка', value: `${totals.totalAvgOcc.toFixed(1)}%` },
+                          { label: 'ADR (год)', value: `${Math.round(totals.totalADR).toLocaleString()} ₽` },
+                          { label: 'Койко-дни (год)', value: Math.round(totals.totalBedDays).toLocaleString() },
+                        ].map((kpi, i) => (
+                          <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                            <p className="text-[9px] font-bold uppercase text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>{kpi.label}</p>
+                            <p className="text-lg font-black text-slate-900">{kpi.value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Помесячная таблица */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-[11px]" style={{ fontFamily: 'Arial, sans-serif' }}>
+                          <thead>
+                            <tr className="bg-[#1a1a2e] text-white">
+                              <th className="p-2 border border-slate-300 font-bold">Месяц</th>
+                              <th className="p-2 border border-slate-300 text-center font-bold">Загрузка</th>
+                              <th className="p-2 border border-slate-300 text-right font-bold">Номеро-ночи</th>
+                              <th className="p-2 border border-slate-300 text-right font-bold">Койко-дни</th>
+                              <th className="p-2 border border-slate-300 text-right font-bold">ADR, ₽</th>
+                              <th className="p-2 border border-slate-300 text-right font-bold">Доход, млн ₽</th>
+                              <th className="p-2 border border-slate-300 text-center font-bold">Статус</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {MONTHS.map((m, mIdx) => {
+                              const res = totals.monthResults[mIdx];
+                              const now = new Date();
+                              const monthDate = new Date(2026, mIdx, 1);
+                              const isClosed = monthDate < new Date(now.getFullYear(), now.getMonth(), 1) && now.getFullYear() === 2026;
+                              const isCurrent = monthDate.getMonth() === now.getMonth() && now.getFullYear() === 2026;
+                              const occ = res.mAvgOcc;
+                              const isPeak = occ >= 80;
+                              const badgeClass = isClosed
+                                ? 'bg-slate-100 text-slate-500'
+                                : isCurrent
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : isPeak
+                                    ? 'bg-orange-100 text-orange-700'
+                                    : 'bg-slate-50 text-slate-600';
+                              const badgeLabel = isClosed ? 'закрыт' : isCurrent ? 'в работе' : isPeak ? 'пик' : 'план';
+                              return (
+                                <tr key={mIdx} className={mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                  <td className="p-2 border border-slate-200 font-bold">{m.name}</td>
+                                  <td className="p-2 border border-slate-200 text-center font-mono">{res.mAvgOcc.toFixed(1)}%</td>
+                                  <td className="p-2 border border-slate-200 text-right font-mono">{Math.round(res.mRN).toLocaleString()}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-mono">{Math.round(res.mBedDays).toLocaleString()}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-mono">{res.mRN > 0 ? Math.round(res.mRev / res.mRN).toLocaleString() : '—'}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-bold">{(res.mRev / 1_000_000).toFixed(2)}</td>
+                                  <td className="p-2 border border-slate-200 text-center">
+                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${badgeClass}`}>{badgeLabel}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            <tr className="bg-[#1a1a2e] text-white font-black">
+                              <td className="p-2 border border-slate-900 uppercase">Итого</td>
+                              <td className="p-2 border border-slate-900 text-center">{totals.totalAvgOcc.toFixed(1)}%</td>
+                              <td className="p-2 border border-slate-900 text-right font-mono">{Math.round(totals.totalRN).toLocaleString()}</td>
+                              <td className="p-2 border border-slate-900 text-right font-mono">{Math.round(totals.totalBedDays).toLocaleString()}</td>
+                              <td className="p-2 border border-slate-900 text-right font-mono">{Math.round(totals.totalADR).toLocaleString()}</td>
+                              <td className="p-2 border border-slate-900 text-right">{(totals.totalRev / 1_000_000).toFixed(1)}</td>
+                              <td className="p-2 border border-slate-900" />
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    {/* ═══════════ 2. АНАЛИЗ РАЗРЫВА ═══════════ */}
+                    <section className="mb-12">
+                      <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#f0a500] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        2. Анализ разрыва: {formatMln(totals.totalBudget)} → {formatMln(TARGET_REVENUE)}
+                      </h2>
+
+                      {(() => {
+                        const gap = TARGET_REVENUE - totals.totalBudget;
+                        const promoGap = Math.round(gap * 0.62);
+                        const mcGap = Math.round(gap * 0.20);
+                        const calGap = gap - promoGap - mcGap;
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                              {[
+                                {
+                                  num: '01',
+                                  title: 'PROMO 32% — зафиксированы',
+                                  impact: `−${formatMln(promoGap)}`,
+                                  desc: 'Акционные тарифы проданы на год вперёд. Перевести в премиальные пакеты в 2026 невозможно.',
+                                  badge: 'неуправляем',
+                                  color: 'border-red-200 bg-red-50',
+                                  badgeColor: 'bg-red-100 text-red-700',
+                                },
+                                {
+                                  num: '02',
+                                  title: 'МЦ в рамп-апе',
+                                  impact: `−${formatMln(mcGap)}`,
+                                  desc: 'Медицинский центр набирает обороты. Полная загрузка — горизонт 2-й половины 2026.',
+                                  badge: 'управляем частично',
+                                  color: 'border-orange-200 bg-orange-50',
+                                  badgeColor: 'bg-orange-100 text-orange-700',
+                                },
+                                {
+                                  num: '03',
+                                  title: 'Январь + Февраль закрыты',
+                                  impact: `−${formatMln(calGap)}`,
+                                  desc: 'Два месяца уже прошли. Их результат зафиксирован и не подлежит пересмотру.',
+                                  badge: 'неуправляем',
+                                  color: 'border-slate-200 bg-slate-50',
+                                  badgeColor: 'bg-slate-100 text-slate-600',
+                                },
+                              ].map((f, i) => (
+                                <div key={i} className={`border rounded-xl p-4 ${f.color}`}>
+                                  <div className="flex justify-between items-start mb-2">
+                                    <span className="text-[10px] font-black text-slate-400" style={{ fontFamily: 'Arial, sans-serif' }}>ФАКТОР {f.num}</span>
+                                    <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${f.badgeColor}`}>{f.badge}</span>
+                                  </div>
+                                  <p className="text-sm font-black text-slate-900 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>{f.title}</p>
+                                  <p className="text-xl font-black text-red-700 mb-2">{f.impact}</p>
+                                  <p className="text-[11px] text-slate-600">{f.desc}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="bg-[#1a1a2e] text-white rounded-xl p-5">
+                              <p className="text-sm font-bold mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Вывод</p>
+                              <p className="text-[12px] leading-relaxed text-slate-300">
+                                Разрыв до {formatMln(TARGET_REVENUE)} — <strong className="text-white">не ошибки управления</strong>, а объективные ограничения сезона 2026.
+                                Реалистичный бюджет: <strong className="text-[#f0a500]">{formatMln(totals.totalBudget)}–{formatMln(totals.totalBudget * 1.09)}</strong>.
+                                Цель {formatMln(TARGET_REVENUE)} — горизонт 2027 при полном рамп-апе МЦ и пересмотре PROMO-квот.
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </section>
+
+                    {/* ═══════════ 3. ТРИ СЦЕНАРИЯ ═══════════ */}
+                    <section className="mb-12">
+                      <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#1a1a2e] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        3. Три сценария бюджета
+                      </h2>
+
+                      {(() => {
+                        const base = totals.totalBudget;
+                        const opt = base * 1.03;
+                        const max = base * 1.09;
+                        return (
+                          <>
+                            <div className="grid grid-cols-3 gap-4 mb-5">
+                              {[
+                                { label: 'Базовый', value: formatMln(base), sub: 'Текущая модель без изменений', color: 'border-slate-200 bg-slate-50', accent: 'text-slate-900' },
+                                { label: 'Оптимистичный', value: formatMln(opt), sub: 'МЦ + 15%, ADR + 3% в высокий', color: 'border-[#f0a500] bg-[#f0a500]/5', accent: 'text-[#c8961a]' },
+                                { label: 'Максимальный', value: formatMln(max), sub: 'МЦ × 2, прямые продажи ↑10%', color: 'border-emerald-200 bg-emerald-50', accent: 'text-emerald-700' },
+                              ].map((sc, i) => (
+                                <div key={i} className={`border-2 rounded-xl p-5 ${sc.color}`}>
+                                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2" style={{ fontFamily: 'Arial, sans-serif' }}>{sc.label}</p>
+                                  <p className={`text-2xl font-black mb-1 ${sc.accent}`}>{sc.value}</p>
+                                  <p className="text-[10px] text-slate-500">{sc.sub}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="bg-[#f0a500]/10 border border-[#f0a500] rounded-xl p-4 mb-5">
+                              <p className="text-sm font-black text-[#1a1a2e] mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Рекомендация</p>
+                              <p className="text-[12px] text-slate-700">
+                                Зафиксировать официальный бюджет 2026 на уровне <strong>{formatMln(opt)}</strong> (оптимистичный сценарий) —
+                                достижимо при реализации конкретных мер по МЦ и ценовому давлению в сезон.
+                              </p>
+                            </div>
+
+                            <table className="w-full text-left border-collapse text-[11px]" style={{ fontFamily: 'Arial, sans-serif' }}>
+                              <thead>
+                                <tr className="bg-slate-100">
+                                  <th className="p-2 border border-slate-200 font-bold">Мера</th>
+                                  <th className="p-2 border border-slate-200 font-bold text-right">Эффект, млн ₽</th>
+                                  <th className="p-2 border border-slate-200 font-bold">Срок</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {[
+                                  { measure: 'Рост МЦ: увеличить конверсию Велнес 20% → 30%', effect: `+${formatMln(totals.totalMedAddonRev * 0.15)}`, term: 'Апр–Май 2026' },
+                                  { measure: 'Ценовое давление в пик: ADR +3–5% в июле–августе', effect: `+${formatMln(totals.totalRoomRev * 0.008)}`, term: 'Июнь 2026' },
+                                  { measure: 'Перевод OTA → прямой канал (−10% комиссий)', effect: `+${formatMln(totals.totalRoomRev * 0.006)}`, term: 'Mar–Апр 2026' },
+                                  { measure: 'Апсейл при заезде: повышение категории номера', effect: `+${formatMln(totals.totalRoomRev * 0.004)}`, term: 'Постоянно' },
+                                ].map((row, i) => (
+                                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                    <td className="p-2 border border-slate-200">{row.measure}</td>
+                                    <td className="p-2 border border-slate-200 text-right font-bold text-emerald-700">{row.effect}</td>
+                                    <td className="p-2 border border-slate-200 text-slate-500">{row.term}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
+                        );
+                      })()}
+                    </section>
+
+                    {/* ═══════════ 4. МЕДИЦИНСКИЙ ЦЕНТР ═══════════ */}
+                    <section className="mb-12">
+                      <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#f0a500] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        4. Медицинский центр — три потока гостей
+                      </h2>
+
+                      <div className="grid grid-cols-3 gap-4 mb-5">
+                        {[
+                          {
+                            label: 'Мед-гости',
+                            sub: 'Med-пакет',
+                            conv: medAddonConfig.medConversion,
+                            check: medAddonConfig.medAvgCheck,
+                            utp: 'Лечение у моря — всё в одном месте',
+                            color: 'border-orange-200 bg-orange-50',
+                          },
+                          {
+                            label: 'Велнес-гости',
+                            sub: 'Ultra / SPA',
+                            conv: medAddonConfig.welnesConversion,
+                            check: medAddonConfig.welnesAvgCheck,
+                            utp: 'Перезагрузись у моря — не в офисе',
+                            color: 'border-purple-200 bg-purple-50',
+                          },
+                          {
+                            label: 'Туристы',
+                            sub: 'BB / HB / FB / PROMO',
+                            conv: medAddonConfig.touristConversion,
+                            check: medAddonConfig.touristAvgCheck,
+                            utp: 'Зашёл на 30 минут — почувствовал разницу',
+                            color: 'border-blue-200 bg-blue-50',
+                          },
+                        ].map((s, i) => (
+                          <div key={i} className={`border rounded-xl p-4 ${s.color}`}>
+                            <p className="text-[10px] font-black uppercase text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>{s.sub}</p>
+                            <p className="text-sm font-black text-slate-900 mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>{s.label}</p>
+                            <div className="flex gap-4 mb-3">
+                              <div>
+                                <p className="text-[9px] text-slate-500 uppercase font-bold">Конверсия</p>
+                                <p className="text-xl font-black text-slate-900">{s.conv}%</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] text-slate-500 uppercase font-bold">Чек</p>
+                                <p className="text-xl font-black text-slate-900">{s.check.toLocaleString()} ₽</p>
+                              </div>
+                            </div>
+                            <p className="text-[10px] italic text-slate-500">«{s.utp}»</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Итог МЦ */}
+                      <div className="grid grid-cols-2 gap-4 mb-5">
+                        <div className="bg-[#1a1a2e] text-white rounded-xl p-4">
+                          <p className="text-[10px] font-bold uppercase text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Платный доход МЦ (год)</p>
+                          <p className="text-3xl font-black text-[#f0a500]">{formatMln(totals.totalMedAddonRev)}</p>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                          <p className="text-[10px] font-bold uppercase text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Доля МЦ в общем бюджете</p>
+                          <p className="text-3xl font-black text-slate-900">{totals.totalBudget > 0 ? ((totals.totalMedAddonRev / totals.totalBudget) * 100).toFixed(1) : 0}%</p>
+                        </div>
+                      </div>
+
+                      {/* Помесячная таблица МЦ */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-[10px]" style={{ fontFamily: 'Arial, sans-serif' }}>
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="p-2 border border-slate-200 font-bold">Месяц</th>
+                              <th className="p-2 border border-slate-200 text-right font-bold">Гостей/день</th>
+                              <th className="p-2 border border-slate-200 text-right font-bold">В МЦ/день</th>
+                              <th className="p-2 border border-slate-200 text-right font-bold">Гостей МЦ</th>
+                              <th className="p-2 border border-slate-200 text-right font-bold">Доход МЦ, тыс. ₽</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {MONTHS.map((m, mIdx) => {
+                              const res = totals.monthResults[mIdx];
+                              const dailyGuests = res.mBedDays > 0 ? (res.mBedDays / m.days).toFixed(0) : '0';
+                              const dailyMC = res.mMedAddonGuests > 0 ? (res.mMedAddonGuests / m.days).toFixed(1) : '0';
+                              return (
+                                <tr key={mIdx} className={mIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                  <td className="p-2 border border-slate-200 font-bold">{m.name}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-mono">{dailyGuests}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-mono">{dailyMC}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-mono">{Math.round(res.mMedAddonGuests).toLocaleString()}</td>
+                                  <td className="p-2 border border-slate-200 text-right font-bold">{Math.round(res.mMedAddonRev / 1000).toLocaleString()}</td>
+                                </tr>
+                              );
+                            })}
+                            <tr className="bg-[#1a1a2e] text-white font-black">
+                              <td className="p-2 border border-slate-900 uppercase">Итого</td>
+                              <td className="p-2 border border-slate-900" />
+                              <td className="p-2 border border-slate-900" />
+                              <td className="p-2 border border-slate-900 text-right font-mono">
+                                {Math.round(totals.monthResults.reduce((a, r) => a + r.mMedAddonGuests, 0)).toLocaleString()}
+                              </td>
+                              <td className="p-2 border border-slate-900 text-right">
+                                {Math.round(totals.totalMedAddonRev / 1000).toLocaleString()}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    {/* ═══════════ 5. КОНКУРЕНТНАЯ СРЕДА ═══════════ */}
+                    <section className="mb-12">
+                      <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#1a1a2e] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        5. Конкурентная среда — Сочи и регион
+                      </h2>
+
+                      <div className="overflow-x-auto mb-5">
+                        <table className="w-full text-left border-collapse text-[10px]" style={{ fontFamily: 'Arial, sans-serif' }}>
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="p-2 border border-slate-200 font-bold">Объект</th>
+                              <th className="p-2 border border-slate-200 font-bold">Регион</th>
+                              <th className="p-2 border border-slate-200 font-bold">Сегмент</th>
+                              <th className="p-2 border border-slate-200 font-bold">Главная сила</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { name: 'Санаторий «Знание»', region: 'Сочи, Центр', seg: 'Средний', str: 'Лечение + доступная цена' },
+                              { name: 'Санаторий «Металлург»', region: 'Сочи, Хоста', seg: 'Средний', str: 'Старая база лояльных гостей' },
+                              { name: 'Radisson Collection (Лазурная)', region: 'Сочи, Хоста', seg: 'Верхний средний', str: 'Бренд + пляж' },
+                              { name: 'Swissôtel Resort Камелия', region: 'Сочи, Центр', seg: 'Премиум', str: 'Инфраструктура, SPA, MICE' },
+                              { name: 'Mriya Resort & Spa', region: 'Сочи, Ялта-р-н', seg: 'Премиум', str: 'Крупнейший SPA, wellness' },
+                              { name: 'Сочи Парк Отель', region: 'Адлер', seg: 'Средний', str: 'Семьи с детьми, аквапарк' },
+                              { name: 'Довиль / Ribera (Анапа)', region: 'Анапа', seg: 'Средний', str: 'Пляж + лечение, семьи' },
+                              { name: 'Санаторий «Русь»', region: 'Ессентуки', seg: 'Средний', str: 'Питьевое лечение, КМВ' },
+                              { name: 'Санаторий «Горный воздух»', region: 'Кисловодск', seg: 'Средний+', str: 'Кардиология, горный климат' },
+                            ].map((row, i) => (
+                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                <td className="p-2 border border-slate-200 font-bold">{row.name}</td>
+                                <td className="p-2 border border-slate-200 text-slate-500">{row.region}</td>
+                                <td className="p-2 border border-slate-200">{row.seg}</td>
+                                <td className="p-2 border border-slate-200 text-slate-600">{row.str}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { title: 'Пляж + Медицина, средний сегмент', desc: '7–12 тыс. ₽/ночь. В Сочи эта связка почти не занята — конкуренты либо дорогие, либо без пляжа.', color: 'border-[#f0a500] bg-[#f0a500]/5' },
+                          { title: 'Женский wellness 35–50', desc: 'Пляж + красота + здоровье. Аудитория платёжеспособная, ищет «своё место» — ниша не занята в Сочи.', color: 'border-purple-200 bg-purple-50' },
+                          { title: 'Корпоративный wellness-ретрит', desc: 'Не MICE, а перезагрузка команды. В среднем сегменте Сочи — пусто. Команды 5–15 человек.', color: 'border-blue-200 bg-blue-50' },
+                        ].map((niche, i) => (
+                          <div key={i} className={`border-2 rounded-xl p-4 ${niche.color}`}>
+                            <p className="text-[9px] font-black uppercase text-slate-400 mb-1" style={{ fontFamily: 'Arial, sans-serif' }}>Свободная ниша</p>
+                            <p className="text-xs font-black text-slate-900 mb-2" style={{ fontFamily: 'Arial, sans-serif' }}>{niche.title}</p>
+                            <p className="text-[10px] text-slate-600">{niche.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    {/* ═══════════ 6. РЕКОМЕНДАЦИИ И ДОРОЖНАЯ КАРТА ═══════════ */}
+                    <section className="mb-12">
+                      <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#f0a500] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        6. Рекомендации и дорожная карта
+                      </h2>
+
+                      <div className="space-y-3 mb-6">
+                        {[
+                          {
+                            q: 'Март–Май',
+                            items: [
+                              '1–2 врача (терапевт + физиотерапевт), 5–7 базовых услуг МЦ',
+                              'Запустить антистресс-программу 1–3 дня для велнес-гостей',
+                              'Партнёрство с лабораторией для чекапов',
+                              'Перевод 10% OTA-потока в прямой канал через CRM',
+                            ],
+                          },
+                          {
+                            q: 'Июнь–Август',
+                            items: [
+                              'Нутрициолог / психолог 2–3 дня в неделю',
+                              'Динамическое ценообразование: при Occ ≥75% поднимать ADR на 8–12%',
+                              'Апсейл-обучение ресепшн: предлагать МЦ при каждом заезде',
+                              'Beauty-day для женской аудитории 35–50 как отдельный продукт',
+                            ],
+                          },
+                          {
+                            q: 'Сентябрь–Декабрь',
+                            items: [
+                              'Корпоративный wellness-ретрит как готовый пакет с ценообразованием',
+                              'Анализ сезона: пересмотр PROMO-квот на 2027',
+                              `Цель: закрыть год на ${formatMln(totals.totalBudget * 1.05)}+ с учётом факта`,
+                              'Подготовка бюджета 2027: горизонт 1,2 млрд ₽',
+                            ],
+                          },
+                        ].map((phase, i) => (
+                          <div key={i} className="border border-slate-200 rounded-xl overflow-hidden">
+                            <div className="bg-[#1a1a2e] text-white px-4 py-2 flex items-center gap-2" style={{ fontFamily: 'Arial, sans-serif' }}>
+                              <span className="text-[#f0a500] font-black text-xs uppercase">{phase.q}</span>
+                            </div>
+                            <ul className="p-4 grid grid-cols-2 gap-x-6 gap-y-1">
+                              {phase.items.map((item, j) => (
+                                <li key={j} className="text-[11px] text-slate-700 flex gap-2">
+                                  <span className="text-[#f0a500] font-black mt-0.5">›</span>
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Потенциал 2027 */}
+                      <div className="bg-[#f0a500]/10 border border-[#f0a500] rounded-xl p-5">
+                        <p className="text-xs font-black uppercase text-[#1a1a2e] mb-3" style={{ fontFamily: 'Arial, sans-serif' }}>Потенциал 2027 — что изменит цифры кардинально</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { factor: 'Пересмотр PROMO-квот', effect: '+150–180 млн ₽' },
+                            { factor: 'Полный рамп-ап МЦ', effect: '+30–50 млн ₽' },
+                            { factor: 'Прямые продажи ≥40%', effect: '+15–20 млн ₽' },
+                            { factor: 'Корпоративный wellness', effect: '+10–15 млн ₽' },
+                          ].map((row, i) => (
+                            <div key={i} className="flex justify-between text-[11px]">
+                              <span className="text-slate-700">{row.factor}</span>
+                              <span className="font-black text-emerald-700">{row.effect}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs font-bold text-[#1a1a2e] mt-4 pt-3 border-t border-[#f0a500]/30">
+                          Итог 2027: <strong>1 200–1 250 млн ₽</strong> — реалистично при системной работе по всем направлениям
+                        </p>
+                      </div>
+                    </section>
+
+                    {/* ═══════════ ПОДПИСИ ═══════════ */}
+                    <div className="mt-16 flex justify-between items-end border-t-2 border-[#1a1a2e] pt-8">
+                      {[
+                        'Аналитик / Руководитель отдела продаж',
+                        'Генеральный директор',
+                        'Собственник',
+                      ].map((role, i) => (
+                        <div key={i} className="text-center">
+                          <div className="w-36 border-b border-[#1a1a2e] mb-2 mx-auto" />
+                          <p className="text-[9px] uppercase font-bold text-slate-400" style={{ fontFamily: 'Arial, sans-serif' }}>{role}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-[9px] text-slate-400 mt-6 leading-relaxed" style={{ fontFamily: 'Arial, sans-serif' }}>
+                      * Все показатели рассчитаны на основе финансовой модели Aqva SPA Resort на дату {new Date().toLocaleDateString('ru-RU')}.
+                      Фактические результаты могут отличаться в зависимости от рыночной конъюнктуры и операционных решений.
+                      Документ предназначен исключительно для внутреннего использования.
+                    </p>
+
+                    {/* Кнопка печати — не выводится на печать */}
+                    <div className="no-print mt-8 flex justify-center">
+                      <button
+                        onClick={() => window.print()}
+                        className="flex items-center gap-2 bg-[#1a1a2e] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#0f0f1e] transition-colors shadow-lg"
+                      >
+                        <Printer size={18} /> Распечатать / Сохранить как PDF
+                      </button>
+                    </div>
+
+                  </div>{/* end p-8 */}
+                </div>{/* end print-container */}
               </motion.div>
             )}
 
