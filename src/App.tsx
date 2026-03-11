@@ -2066,28 +2066,60 @@ export default function App() {
                 </section>
 
                 <section className="mb-10">
-                  <h2 className="text-sm font-black uppercase tracking-widest mb-4 border-l-4 border-orange-500 pl-3">5. Рекомендации при снижении дохода</h2>
-                  <div className="bg-orange-50 border border-orange-200 p-6 rounded-lg">
-                    <p className="text-sm font-bold text-orange-900 mb-4">В случае отклонения факта от плана более чем на 10%, рекомендуются следующие меры:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="text-xs font-black uppercase text-orange-800 mb-2">Оперативные меры</h4>
-                        <ul className="text-xs space-y-2 text-orange-900">
-                          <li>• <b>Пересмотр микса</b>: Увеличение квот на пакеты Medical и SPA за счет сокращения базовых Аква-туров.</li>
-                          <li>• <b>Стимулирование прямых продаж</b>: Внедрение закрытых акций для лояльных гостей (база CRM) для экономии на комиссиях OTA.</li>
-                          <li>• <b>Динамическое управление</b>: Снижение минимального срока проживания (LOS) для дозагрузки "окон" в графике.</li>
+                  <h2 className="text-sm font-black uppercase tracking-widest mb-4 border-l-4 border-orange-500 pl-3">5. Рекомендации</h2>
+                  {(() => {
+                    const gap = totals.totalBudget - TARGET_REVENUE;
+                    const isOnPlan = totals.totalBudget >= TARGET_REVENUE;
+                    const isGOPOk = totals.totalGOPMargin >= targetGOPMargin;
+                    const avgOtaShare = MONTHS.reduce((acc, _, i) => acc + (segmentData[i].ota?.plan || 0), 0) / 12;
+                    const avgMedShare = pkgMixByMonth.reduce((acc, mix) => {
+                      const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+                      return acc + (total > 0 ? (mix.med / total) * 100 : 0);
+                    }, 0) / 12;
+                    const lowOccMonths = MONTHS.filter((_, i) => {
+                      const avgOcc = ROOM_TYPES.reduce((acc, rt) => acc + roomMonthlyData[i][rt.key].plan, 0) / ROOM_TYPES.length;
+                      return avgOcc < 50 && avgOcc > 0;
+                    });
+
+                    return isOnPlan ? (
+                      <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-lg">
+                        <p className="text-sm font-bold text-emerald-900 mb-4">
+                          Бюджет выполнен: {formatMln(totals.totalBudget)} из целевых {formatMln(TARGET_REVENUE)} (+{formatMln(gap)}).
+                        </p>
+                        <ul className="text-xs space-y-2 text-emerald-800">
+                          {!isGOPOk && <li>• <b>GOP ниже цели</b>: маржа {totals.totalGOPMargin.toFixed(1)}% vs цели {targetGOPMargin}% — проверьте структуру OPEX и долю OTA-комиссий.</li>}
+                          {avgOtaShare > 25 && <li>• <b>Зависимость от OTA</b>: {avgOtaShare.toFixed(0)}% продаж — переводите гостей в прямой канал для защиты маржи.</li>}
+                          {avgMedShare < 25 && <li>• <b>Резерв роста</b>: доля Med {avgMedShare.toFixed(0)}% — при увеличении до 25%+ ADR вырастет без поднятия цен.</li>}
+                          {!isGOPOk || avgOtaShare > 25 || avgMedShare < 25 ? null : <li>• Все ключевые показатели в норме. Удерживайте текущий микс и сезонную ценовую политику.</li>}
                         </ul>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-black uppercase text-orange-800 mb-2">Стратегические меры</h4>
-                        <ul className="text-xs space-y-2 text-orange-900">
-                          <li>• <b>Работа с сегментами</b>: При падении коммерческого спроса — временное увеличение доли корпоративных групп (MICE) или ФСС.</li>
-                          <li>• <b>Апсейл (Upsell)</b>: Мотивация службы приема на предложение повышения категории номера при заезде.</li>
-                          <li>• <b>Пакетные предложения</b>: Формирование спецпредложений "3+1" или "Дети бесплатно" для стимуляции спроса в будние дни.</li>
-                        </ul>
+                    ) : (
+                      <div className="bg-orange-50 border border-orange-200 p-6 rounded-lg">
+                        <p className="text-sm font-bold text-orange-900 mb-4">
+                          Разрыв до плана: <span className="text-red-700">{formatMln(Math.abs(gap))}</span> — необходимы корректирующие меры.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="text-xs font-black uppercase text-orange-800 mb-2">Оперативные меры</h4>
+                            <ul className="text-xs space-y-2 text-orange-900">
+                              {avgMedShare < 25 && <li>• <b>Пересмотр микса</b>: Med в пакетах — {avgMedShare.toFixed(0)}%, поднять до 25%+ для роста ADR без увеличения загрузки.</li>}
+                              {avgOtaShare > 25 && <li>• <b>Снизить OTA</b>: {avgOtaShare.toFixed(0)}% через ОТА — запустить закрытые акции по CRM для сдвига в прямой канал.</li>}
+                              {lowOccMonths.length > 0 && <li>• <b>Дозагрузка</b>: в {lowOccMonths.map(m => m.name).join(', ')} загрузка ниже 50% — снизить min LOS и запустить пакеты "3+1".</li>}
+                              {avgMedShare >= 25 && avgOtaShare <= 25 && lowOccMonths.length === 0 && <li>• <b>Динамическое ценообразование</b>: при загрузке ≥75% поднимайте базовые цены на 8–12%.</li>}
+                            </ul>
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black uppercase text-orange-800 mb-2">Стратегические меры</h4>
+                            <ul className="text-xs space-y-2 text-orange-900">
+                              {!isGOPOk && <li>• <b>OPEX-аудит</b>: маржа GOP {totals.totalGOPMargin.toFixed(1)}% ниже цели {targetGOPMargin}% — ревизия переменных затрат.</li>}
+                              <li>• <b>Корпоративный сегмент</b>: при падении коммерческого спроса — временно увеличить долю MICE и ФСС.</li>
+                              <li>• <b>Апсейл</b>: мотивация службы приёма предлагать повышение категории номера при заезде.</li>
+                            </ul>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </section>
 
                 <div className="mt-20 flex justify-between items-end border-t border-slate-200 pt-8">
@@ -2271,17 +2303,35 @@ export default function App() {
                         </table>
                       </div>
 
-                      <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                        <h4 className="text-xs font-bold text-amber-800 uppercase mb-2 flex items-center gap-2">
-                          <AlertCircle size={14} /> Рекомендации по выполнению плана
-                        </h4>
-                        <ul className="text-[11px] text-amber-900 space-y-1">
-                          <li>• <b>Внедрение "Check-up"</b>: Продажа комплексных диагностических программ в первые 2 дня заезда.</li>
-                          <li>• <b>Кросс-продажи</b>: Обучение врачей на первичных консультациях предлагать минимум 2 дополнительные платные процедуры.</li>
-                          <li>• <b>Вечерний прайс</b>: Скидка 15% на процедуры после 18:00 для выравнивания нагрузки кабинетов.</li>
-                          <li>• <b>Абонементы</b>: При покупке курса из 5 процедур — 6-я в подарок (увеличивает LTV гостя).</li>
-                        </ul>
-                      </div>
+                      {(() => {
+                        const avgLoad = totals.monthResults.reduce((acc, m) => acc + (m.mMedAddonGuests / costConfig.medCapacity) * 100, 0) / 12;
+                        const overloadedMonths = MONTHS.filter((_, i) => (totals.monthResults[i].mMedAddonGuests / costConfig.medCapacity) * 100 > 80);
+                        const underloadedMonths = MONTHS.filter((_, i) => totals.monthResults[i].mRN > 0 && (totals.monthResults[i].mMedAddonGuests / costConfig.medCapacity) * 100 < 40);
+                        const avgMedShare = pkgMixByMonth.reduce((acc, mix) => {
+                          const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+                          return acc + (total > 0 ? (mix.med / total) * 100 : 0);
+                        }, 0) / 12;
+
+                        const recs: { label: string; text: string }[] = [];
+                        if (avgLoad < 60) recs.push({ label: 'Резерв мощности', text: `Загрузка МЦ в среднем ${avgLoad.toFixed(0)}% — есть резерв. Внедрите Check-up в первые 2 дня заезда: это даёт +15–20% к доп. выручке.` });
+                        if (overloadedMonths.length > 0) recs.push({ label: 'Перегрузка МЦ', text: `В ${overloadedMonths.map(m => m.name).join(', ')} нагрузка >80% — введите предбронирование процедур при онлайн-регистрации.` });
+                        if (underloadedMonths.length > 0) recs.push({ label: 'Низкая загрузка', text: `В ${underloadedMonths.map(m => m.name).join(', ')} МЦ недогружен — запустите скидку 15% на вечерние слоты (после 18:00).` });
+                        if (avgMedShare < 20) recs.push({ label: 'Доля Med мала', text: `Med в миксе пакетов — ${avgMedShare.toFixed(0)}% при оптимуме 25%+. Увеличьте квоту Med: это напрямую поднимает ADR.` });
+                        if (avgMedShare >= 25 && avgLoad >= 60 && overloadedMonths.length === 0) recs.push({ label: 'Кросс-продажи', text: `МЦ работает стабильно. Следующий шаг — обучить врачей предлагать 2+ доп. процедуры на первичной консультации.` });
+
+                        return (
+                          <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                            <h4 className="text-xs font-bold text-amber-800 uppercase mb-3 flex items-center gap-2">
+                              <AlertCircle size={14} /> Рекомендации по медцентру
+                            </h4>
+                            <ul className="text-[11px] text-amber-900 space-y-2">
+                              {recs.map((r, i) => (
+                                <li key={i}>• <b>{r.label}</b>: {r.text}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -2876,11 +2926,45 @@ export default function App() {
 
                   <div className="bg-indigo-900 text-white p-6 rounded-2xl shadow-sm">
                     <h3 className="font-bold mb-4 flex items-center gap-2"><TrendingUp size={18} className="text-indigo-400" /> Рекомендации по продажам</h3>
-                    <div className="space-y-4 text-sm text-indigo-100">
-                      <p>• <b>Акцент на Медикал</b>: В низкий сезон необходимо удерживать долю пакета "Med" не ниже 30% для обеспечения ADR.</p>
-                      <p>• <b>Стимулирование СПА</b>: В межсезонье предлагать апгрейд с Ultra до SPA со скидкой 50% при бронировании от 3-х ночей.</p>
-                      <p>• <b>Динамическое ценообразование</b>: При достижении загрузки 80% в Периоде 7 (Высокий сезон) — повышать цены на 10-15% на категорию "Стандарт".</p>
-                    </div>
+                    {(() => {
+                      const avgOtaShare = MONTHS.reduce((acc, _, i) => acc + (segmentData[i].ota?.plan || 0), 0) / 12;
+                      const avgDirectShare = MONTHS.reduce((acc, _, i) => acc + ((segmentData[i] as any).direct?.plan || 0), 0) / 12;
+                      const avgMedShare = pkgMixByMonth.reduce((acc, mix) => {
+                        const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+                        return acc + (total > 0 ? (mix.med / total) * 100 : 0);
+                      }, 0) / 12;
+                      const avgSpaShare = pkgMixByMonth.reduce((acc, mix) => {
+                        const total = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+                        return acc + (total > 0 ? (mix.spa / total) * 100 : 0);
+                      }, 0) / 12;
+                      const highOccMonths = MONTHS.filter((_, i) => {
+                        const avgOcc = ROOM_TYPES.reduce((acc, rt) => acc + roomMonthlyData[i][rt.key].plan, 0) / ROOM_TYPES.length;
+                        return avgOcc >= 80;
+                      });
+                      const lowRevMonths = [...MONTHS]
+                        .map((m, i) => ({ name: m.name, rev: totals.monthResults[i].mRev }))
+                        .filter(m => m.rev > 0)
+                        .sort((a, b) => a.rev - b.rev)
+                        .slice(0, 3);
+                      const commSavingIfShift10 = Math.round(totals.totalRev * 0.1 * (costConfig.commissionPct / 100) / 1000000);
+
+                      const recs: { label: string; text: string }[] = [];
+                      if (avgMedShare < 25) recs.push({ label: 'Акцент на Med', text: `Доля Med — ${avgMedShare.toFixed(0)}%, целевой уровень 25%+. Это главный рычаг ADR в низкий сезон.` });
+                      if (avgSpaShare < 15) recs.push({ label: 'Стимулирование SPA', text: `SPA в миксе — ${avgSpaShare.toFixed(0)}%. В межсезонье предлагайте апгрейд с Ultra до SPA со скидкой 50% от 3 ночей.` });
+                      if (avgOtaShare > 25) recs.push({ label: 'OTA-зависимость', text: `OTA занимает ${avgOtaShare.toFixed(0)}% продаж. Сдвиг 10% в прямой канал сэкономит ~${commSavingIfShift10} млн ₽ на комиссиях.` });
+                      if (avgDirectShare < 20) recs.push({ label: 'Прямые продажи', text: `Прямой канал — ${avgDirectShare.toFixed(0)}%. Запустите закрытые акции по CRM для возвратных гостей — конверсия выше, комиссия ноль.` });
+                      if (highOccMonths.length > 0) recs.push({ label: 'Динамическое ценообразование', text: `В ${highOccMonths.map(m => m.name).join(', ')} загрузка ≥80% — поднимайте цены Стандарта на 10–15%.` });
+                      if (lowRevMonths.length > 0) recs.push({ label: 'Слабые месяцы', text: `Наименьшая выручка: ${lowRevMonths.map(m => m.name).join(', ')}. Запустите пакеты "3+1" или "Дети бесплатно" для загрузки будних дней.` });
+
+                      return (
+                        <div className="space-y-3 text-sm text-indigo-100">
+                          {recs.length === 0
+                            ? <p className="text-emerald-300 font-bold">Все ключевые метрики в норме — продажи идут по плану.</p>
+                            : recs.map((r, i) => <p key={i}>• <b className="text-white">{r.label}</b>: {r.text}</p>)
+                          }
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </motion.div>
