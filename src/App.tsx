@@ -341,9 +341,19 @@ export default function App() {
   const [promoDiscount, setPromoDiscount] = useState(10);
 
   const [medAddonConfig, setMedAddonConfig] = useState({
-    maxConversion: 5, // Максимальный % от числа проживающих Гостей
-    avgCheck: 500, // Средний чек в рублях
-    procsPerGuest: 1, // Среднее кол-во процедур на 1 гостя
+    // Поток 1: Med-пакет (уже приехали на лечение, покупают доп. процедуры)
+    medConversion: 50,   // % от койко-дней Med-гостей
+    medAvgCheck: 3000,   // ₽ средний чек на доп. процедуру
+    // Поток 2: Велнес (Ultra/SPA — готовы к процедурам)
+    welnesConversion: 20,
+    welnesAvgCheck: 2000,
+    // Поток 3: Туристы (BB/HB/FB/PROMO — редко идут в МЦ)
+    touristConversion: 5,
+    touristAvgCheck: 1200,
+    // Legacy (не используется в расчётах, сохраняется для совместимости)
+    maxConversion: 5,
+    avgCheck: 1200,
+    procsPerGuest: 1,
   });
 
   const [roomMonthlyData, setRoomMonthlyData] = useState(MONTHS.map((m, mIdx) => {
@@ -650,11 +660,19 @@ export default function App() {
             byPkgPlan[pk.key as keyof typeof byPkgPlan] += rev;
           });
 
-          // Medical Addon: calculated ONCE per room type per period (not per package)
-          // Applies to all guests regardless of package type
-          const addonGuests = bd * (convRate / 100);
-          mMedAddonGuests += addonGuests;
-          mMedAddonRev += addonGuests * medAddonConfig.avgCheck;
+          // Medical Addon: три потока гостей с разной конверсией и чеком
+          const streamMedBD = bd * (rawMixes['med'] * mixNorm);
+          const streamWelnesBD = bd * ((rawMixes['ultra'] + rawMixes['spa']) * mixNorm);
+          const streamTouristBD = bd - streamMedBD - streamWelnesBD;
+
+          const addonMedGuests = streamMedBD * (medAddonConfig.medConversion / 100);
+          const addonWelnesGuests = streamWelnesBD * (medAddonConfig.welnesConversion / 100);
+          const addonTouristGuests = Math.max(0, streamTouristBD) * (medAddonConfig.touristConversion / 100);
+
+          mMedAddonGuests += addonMedGuests + addonWelnesGuests + addonTouristGuests;
+          mMedAddonRev += addonMedGuests * medAddonConfig.medAvgCheck
+                        + addonWelnesGuests * medAddonConfig.welnesAvgCheck
+                        + addonTouristGuests * medAddonConfig.touristAvgCheck;
         });
       });
 
@@ -2194,44 +2212,61 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1 space-y-6">
-                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Калькулятор плана</h3>
-                        <div className="space-y-4">
-                          <div className="space-y-3">
-                            <label className="text-[10px] uppercase font-bold text-slate-500 block">Алгоритм: Макс. % от проживающих</label>
-                            <div className="flex items-center gap-2">
-                              <input 
-                                type="number" 
-                                value={medAddonConfig.maxConversion} 
-                                onChange={(e) => setMedAddonConfig(prev => ({ ...prev, maxConversion: parseInt(e.target.value) || 0 }))} 
-                                className="w-20 border rounded p-2 text-sm font-bold text-indigo-600" 
-                              />
-                              <span className="text-sm font-bold text-slate-400">%</span>
+                    <div className="lg:col-span-1 space-y-4">
+                      {[
+                        {
+                          label: 'Мед-гости', sub: 'Med-пакет', color: 'indigo',
+                          pkgs: 'Med пакет',
+                          convKey: 'medConversion' as const, checkKey: 'medAvgCheck' as const,
+                          desc: 'Уже приехали на лечение — покупают доп. процедуры',
+                          convDefault: 50, checkDefault: 3000,
+                        },
+                        {
+                          label: 'Велнес-гости', sub: 'Ultra / SPA пакеты', color: 'purple',
+                          pkgs: 'Ultra, SPA',
+                          convKey: 'welnesConversion' as const, checkKey: 'welnesAvgCheck' as const,
+                          desc: 'Ориентированы на отдых и красоту — готовы к разовым процедурам',
+                          convDefault: 20, checkDefault: 2000,
+                        },
+                        {
+                          label: 'Туристы', sub: 'BB / HB / FB / PROMO', color: 'slate',
+                          pkgs: 'BB, HB, FB, PROMO',
+                          convKey: 'touristConversion' as const, checkKey: 'touristAvgCheck' as const,
+                          desc: 'Едут за морем и аквапарком — редко заходят в МЦ',
+                          convDefault: 5, checkDefault: 1200,
+                        },
+                      ].map(stream => (
+                        <div key={stream.label} className={`bg-${stream.color}-50 border border-${stream.color}-200 p-4 rounded-xl`}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <p className={`text-xs font-black text-${stream.color}-800 uppercase`}>{stream.label}</p>
+                              <p className={`text-[9px] text-${stream.color}-500`}>{stream.pkgs}</p>
                             </div>
-                            <p className="text-[9px] text-slate-400 italic">Согласно заданному алгоритму: макс. 5% от числа проживающих Гостей.</p>
+                            <span className={`text-[9px] bg-${stream.color}-100 text-${stream.color}-700 px-2 py-0.5 rounded-full font-bold`}>
+                              {formatMln(0)}
+                            </span>
                           </div>
-                          <div>
-                            <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Средний чек (₽)</label>
-                            <input 
-                              type="number" 
-                              value={medAddonConfig.avgCheck} 
-                              onChange={(e) => setMedAddonConfig(prev => ({ ...prev, avgCheck: parseInt(e.target.value) || 0 }))} 
-                              className="w-full border rounded p-2 font-bold text-indigo-600" 
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Процедур на гостя (шт)</label>
-                            <input 
-                              type="number" 
-                              step="0.1"
-                              value={medAddonConfig.procsPerGuest} 
-                              onChange={(e) => setMedAddonConfig(prev => ({ ...prev, procsPerGuest: parseFloat(e.target.value) || 0 }))} 
-                              className="w-full border rounded p-2 font-bold text-indigo-600" 
-                            />
+                          <p className={`text-[9px] text-${stream.color}-600 italic mb-3`}>{stream.desc}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-500 block mb-1">Конверсия %</label>
+                              <input type="number" min={0} max={100}
+                                value={medAddonConfig[stream.convKey]}
+                                onChange={(e) => setMedAddonConfig(prev => ({ ...prev, [stream.convKey]: parseInt(e.target.value) || 0 }))}
+                                className="w-full border rounded p-1.5 text-sm font-bold text-indigo-600 text-center"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-500 block mb-1">Средний чек ₽</label>
+                              <input type="number" min={0}
+                                value={medAddonConfig[stream.checkKey]}
+                                onChange={(e) => setMedAddonConfig(prev => ({ ...prev, [stream.checkKey]: parseInt(e.target.value) || 0 }))}
+                                className="w-full border rounded p-1.5 text-sm font-bold text-indigo-600 text-center"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ))}
 
                       <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
                         <h3 className="text-sm font-bold text-indigo-800 mb-4 uppercase">Ассортимент для плана</h3>
@@ -2262,9 +2297,9 @@ export default function App() {
                           <thead>
                             <tr className="bg-slate-900 text-white">
                               <th className="p-2 text-left">Месяц</th>
-                              <th className="p-2 text-center">Гостей (доп)</th>
-                              <th className="p-2 text-center">Процедур</th>
-                              <th className="p-2 text-right">Доп. услуги, ₽</th>
+                              <th className="p-2 text-center">Гостей/день</th>
+                              <th className="p-2 text-center text-indigo-300">в МЦ/день</th>
+                              <th className="p-2 text-center">Гостей МЦ</th>
                               <th className="p-2 text-right bg-indigo-800">Платный доход МЦ, ₽</th>
                               <th className="p-2 text-right">Нагрузка %</th>
                             </tr>
@@ -2272,13 +2307,19 @@ export default function App() {
                           <tbody>
                             {MONTHS.map((m, i) => {
                               const res = totals.monthResults[i];
+                              const dailyGuests = res.mBedDays > 0 ? res.mBedDays / m.days : 0;
+                              const dailyMC = res.mMedAddonGuests > 0 ? res.mMedAddonGuests / m.days : 0;
                               const load = (res.mMedAddonGuests / costConfig.medCapacity) * 100;
                               return (
                                 <tr key={i} className="border-bottom border-slate-100 hover:bg-slate-50">
                                   <td className="p-2 font-bold">{m.name}</td>
+                                  <td className="p-2 text-center font-mono text-slate-500">
+                                    {dailyGuests > 0 ? Math.round(dailyGuests).toLocaleString() : '—'}
+                                  </td>
+                                  <td className="p-2 text-center font-mono font-bold text-indigo-600">
+                                    {dailyMC > 0 ? Math.round(dailyMC).toLocaleString() : '—'}
+                                  </td>
                                   <td className="p-2 text-center font-mono">{Math.round(res.mMedAddonGuests).toLocaleString()}</td>
-                                  <td className="p-2 text-center font-mono">{Math.round(res.mMedAddonProcs).toLocaleString()}</td>
-                                  <td className="p-2 text-right font-bold text-slate-600">{Math.round(res.mMedAddonRev).toLocaleString()}</td>
                                   <td className="p-2 text-right font-black text-indigo-700 bg-indigo-50/50">{Math.round(res.mMedAddonRev).toLocaleString()}</td>
                                   <td className="p-2 text-right">
                                     <div className="flex items-center justify-end gap-2">
@@ -2293,9 +2334,13 @@ export default function App() {
                             })}
                             <tr className="bg-slate-100 font-black">
                               <td className="p-2">ИТОГО</td>
+                              <td className="p-2 text-center text-slate-500">
+                                {Math.round(totals.totalBedDays / 365).toLocaleString()}/д
+                              </td>
+                              <td className="p-2 text-center text-indigo-600">
+                                {Math.round(totals.monthResults.reduce((acc, m) => acc + m.mMedAddonGuests, 0) / 365).toLocaleString()}/д
+                              </td>
                               <td className="p-2 text-center">{Math.round(totals.monthResults.reduce((acc, m) => acc + m.mMedAddonGuests, 0)).toLocaleString()}</td>
-                              <td className="p-2 text-center">{Math.round(totals.monthResults.reduce((acc, m) => acc + m.mMedAddonProcs, 0)).toLocaleString()}</td>
-                              <td className="p-2 text-right text-slate-600">{Math.round(totals.totalMedAddonRev).toLocaleString()}</td>
                               <td className="p-2 text-right text-indigo-900 bg-indigo-100">{Math.round(totals.totalMedAddonRev).toLocaleString()}</td>
                               <td className="p-2 text-right">—</td>
                             </tr>
