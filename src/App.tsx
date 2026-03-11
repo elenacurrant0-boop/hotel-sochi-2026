@@ -29,7 +29,9 @@ import {
   Layers,
   Lock,
   Table2,
-  FileText
+  FileText,
+  ShoppingBag,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -90,6 +92,85 @@ const MONTHS = [
   { name: "Октябрь",  days: 31, distribution: [{ pIdx: 8, sKey: 'mid',      days: 31 }] },
   { name: "Ноябрь",   days: 30, distribution: [{ pIdx: 9, sKey: 'low',      days: 30, displayDates: "01.11–30.11" }] },
   { name: "Декабрь",  days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31, displayDates: "01.12–31.12" }] },
+];
+
+interface SeasonalProduct {
+  id: string;
+  name: string;
+  description: string;
+  duration: number;
+  dateFrom: string; // "DD.MM"
+  dateTo: string;   // "DD.MM"
+  priceFrom: number;
+  priceTo: number;
+  targetPackage: string;
+  tags: string[];
+  notes: string;
+  includeInReport: boolean;
+  createdAt: string;
+}
+
+const INITIAL_SEASONAL_PRODUCTS: SeasonalProduct[] = [
+  {
+    id: 'sp1',
+    name: 'Весеннее восстановление',
+    description: 'Глубокая регенерация после зимы. Детокс, витаминная поддержка и восстановление энергетического баланса.',
+    duration: 7,
+    dateFrom: '01.03',
+    dateTo: '31.05',
+    priceFrom: 45000,
+    priceTo: 65000,
+    targetPackage: 'med',
+    tags: ['грязелечение', 'витаминные капельницы', 'физиотерапия'],
+    notes: '',
+    includeInReport: true,
+    createdAt: '2026-03-11',
+  },
+  {
+    id: 'sp2',
+    name: 'Семейный иммунитет',
+    description: 'Комплексная защита для всей семьи. Укрепление естественных барьеров и профилактика сезонных заболеваний.',
+    duration: 10,
+    dateFrom: '01.03',
+    dateTo: '31.05',
+    priceFrom: 55000,
+    priceTo: 85000,
+    targetPackage: 'med',
+    tags: ['галотерапия', 'ингаляции', 'лечебное плавание'],
+    notes: '',
+    includeInReport: true,
+    createdAt: '2026-03-11',
+  },
+  {
+    id: 'sp3',
+    name: 'Антистресс и сон',
+    description: 'Нормализация нервной системы и качества сна. Снятие хронической усталости и эмоционального выгорания.',
+    duration: 5,
+    dateFrom: '01.03',
+    dateTo: '30.11',
+    priceFrom: 35000,
+    priceTo: 50000,
+    targetPackage: 'spa',
+    tags: ['флоатинг', 'нарзанные ванны', 'ароматерапия'],
+    notes: '',
+    includeInReport: true,
+    createdAt: '2026-03-11',
+  },
+  {
+    id: 'sp4',
+    name: 'Морской бриз',
+    description: 'Климатолечение и релаксация на берегу моря. Идеально для восстановления дыхательной системы и общего тонуса.',
+    duration: 6,
+    dateFrom: '01.04',
+    dateTo: '31.10',
+    priceFrom: 38000,
+    priceTo: 55000,
+    targetPackage: 'med',
+    tags: ['прогулки у моря', 'нарзанные ванны', 'врачебный контроль'],
+    notes: '',
+    includeInReport: false,
+    createdAt: '2026-03-11',
+  },
 ];
 
 const initialPrices = () => {
@@ -280,6 +361,16 @@ export default function App() {
     med: { share: 0, rev: 0 },
     promo: { share: 0, rev: 0 }
   });
+
+  const [seasonalProducts, setSeasonalProducts] = useState<SeasonalProduct[]>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_seasonal_products');
+      if (saved) return JSON.parse(saved) as SeasonalProduct[];
+    } catch (e) {}
+    return INITIAL_SEASONAL_PRODUCTS;
+  });
+  const [seasonalModal, setSeasonalModal] = useState<{ open: boolean; editing: SeasonalProduct | null }>({ open: false, editing: null });
+  const [seasonalForm, setSeasonalForm] = useState<Partial<SeasonalProduct>>({});
 
   const [promoProposals, setPromoProposals] = useState('');
   const [competitorAnalysis, setCompetitorAnalysis] = useState('');
@@ -481,6 +572,13 @@ export default function App() {
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, isSandbox, userRole, expenseModel, monthlyFact, monthlyGuestCoeff
   ]);
+
+  // Save seasonal products to localStorage separately
+  useEffect(() => {
+    try {
+      localStorage.setItem('sochi_seasonal_products', JSON.stringify(seasonalProducts));
+    } catch (e) {}
+  }, [seasonalProducts]);
 
   const toggleSandbox = () => {
     const next = !isSandbox;
@@ -1272,6 +1370,7 @@ export default function App() {
               items: [
                 { id: 'dashboard', label: 'Сводная панель', icon: LayoutDashboard, roles: ['ADMIN', 'OWNER', 'DEMO'] },
                 { id: 'medicine', label: 'Медицина', icon: Stethoscope, roles: ['ADMIN', 'OWNER', 'DEMO'], demoLocked: true },
+                { id: 'seasonal', label: 'Сезонные продукты', icon: ShoppingBag, roles: ['ADMIN', 'OWNER'] },
                 { id: 'packages', label: 'Пакетные предложения', icon: Layers, demoLocked: true },
                 { id: 'calculation', label: 'Калькуляция цен', icon: Calculator, roles: ['ADMIN', 'OWNER', 'DEMO'], demoLocked: true },
               ]
@@ -2675,6 +2774,53 @@ export default function App() {
                         </p>
                       </div>
                     </section>
+
+                    {/* ═══════════ СЕЗОННЫЕ ПРОДУКТЫ (динамически из вкладки) ═══════════ */}
+                    {seasonalProducts.filter(p => p.includeInReport).length > 0 && (
+                      <section className="mb-12 page-break-before">
+                        <h2 className="text-xs font-black uppercase tracking-widest mb-5 border-l-4 border-[#f0a500] pl-3" style={{ fontFamily: 'Arial, sans-serif' }}>
+                          Сезонные продукты — актуальная линейка
+                        </h2>
+                        <div className="grid grid-cols-2 gap-4">
+                          {seasonalProducts.filter(p => p.includeInReport).map(p => {
+                            const nowMMDD = (() => { const n = new Date(); return (n.getMonth() + 1) * 100 + n.getDate(); })();
+                            const isActive = (() => {
+                              if (!p.dateFrom || !p.dateTo) return false;
+                              const [fd, fm] = p.dateFrom.split('.').map(Number);
+                              const [td, tm] = p.dateTo.split('.').map(Number);
+                              const from = fm * 100 + fd, to = tm * 100 + td;
+                              return from <= to ? nowMMDD >= from && nowMMDD <= to : nowMMDD >= from || nowMMDD <= to;
+                            })();
+                            const pkg = PACKAGES.find(pk => pk.key === p.targetPackage);
+                            return (
+                              <div key={p.id} className="border border-slate-200 rounded-xl p-4">
+                                <div className="flex items-start justify-between mb-2 gap-2">
+                                  <p className="text-[11px] font-black uppercase text-slate-900" style={{ fontFamily: 'Arial, sans-serif' }}>{p.name}</p>
+                                  <div className="flex gap-1 shrink-0">
+                                    {isActive && <span className="text-[8px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full border border-emerald-200">Актуально</span>}
+                                    {pkg && <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 ${pkg.color}`}>{pkg.short}</span>}
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-600 mb-2 leading-relaxed">{p.description}</p>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] text-slate-500 mb-2">
+                                  {p.dateFrom && p.dateTo && <span>📅 {p.dateFrom}–{p.dateTo}</span>}
+                                  <span>⏱ {p.duration} дн.</span>
+                                  {(p.priceFrom > 0 || p.priceTo > 0) && <span>💰 {p.priceFrom.toLocaleString('ru')}–{p.priceTo.toLocaleString('ru')} ₽</span>}
+                                </div>
+                                {p.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {p.tags.map((t, i) => <span key={i} className="text-[8px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">{t}</span>)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[9px] text-slate-400 mt-3 italic" style={{ fontFamily: 'Arial, sans-serif' }}>
+                          * Продукты управляются в разделе «Сезонные продукты» финансовой модели. Попадают в записку при активации флага «В записке».
+                        </p>
+                      </section>
+                    )}
 
                     {/* ═══════════ ПОДПИСИ ═══════════ */}
                     <div className="mt-16 flex justify-between items-end border-t-2 border-[#1a1a2e] pt-8">
@@ -5407,6 +5553,252 @@ export default function App() {
                     );
                   })()}
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'seasonal' && (userRole === 'ADMIN' || userRole === 'OWNER') && (
+              <motion.div
+                key="seasonal"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                {/* Header */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                      <ShoppingBag className="text-indigo-500" /> Сезонные продукты
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Управляйте продуктовой линейкой. Отмеченные «В записке» попадают в Пояснительную записку автоматически.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSeasonalForm({ name: '', description: '', duration: 7, dateFrom: '', dateTo: '', priceFrom: 0, priceTo: 0, targetPackage: 'med', tags: [], notes: '', includeInReport: true });
+                      setSeasonalModal({ open: true, editing: null });
+                    }}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shrink-0"
+                  >
+                    <Plus size={16} /> Добавить продукт
+                  </button>
+                </div>
+
+                {/* Stats */}
+                {(() => {
+                  const nowMMDD = (() => { const n = new Date(); return (n.getMonth() + 1) * 100 + n.getDate(); })();
+                  const isActive = (p: SeasonalProduct) => {
+                    if (!p.dateFrom || !p.dateTo) return false;
+                    const [fd, fm] = p.dateFrom.split('.').map(Number);
+                    const [td, tm] = p.dateTo.split('.').map(Number);
+                    const from = fm * 100 + fd, to = tm * 100 + td;
+                    return from <= to ? nowMMDD >= from && nowMMDD <= to : nowMMDD >= from || nowMMDD <= to;
+                  };
+                  return (
+                    <div className="flex flex-wrap gap-4">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3">
+                        <p className="text-[10px] font-bold uppercase text-emerald-600 tracking-wide">Активных сейчас</p>
+                        <p className="text-2xl font-black text-emerald-700">{seasonalProducts.filter(isActive).length}</p>
+                      </div>
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3">
+                        <p className="text-[10px] font-bold uppercase text-indigo-600 tracking-wide">В пояснительной записке</p>
+                        <p className="text-2xl font-black text-indigo-700">{seasonalProducts.filter(p => p.includeInReport).length}</p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-3">
+                        <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Всего продуктов</p>
+                        <p className="text-2xl font-black text-slate-700">{seasonalProducts.length}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Cards grid */}
+                {seasonalProducts.length === 0 ? (
+                  <div className="text-center py-20 text-slate-400">
+                    <ShoppingBag size={44} className="mx-auto mb-4 opacity-25" />
+                    <p className="text-lg font-semibold">Продуктов пока нет</p>
+                    <p className="text-sm mt-1">Нажмите «Добавить продукт» чтобы создать первый</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {seasonalProducts.map(p => {
+                      const nowMMDD = (() => { const n = new Date(); return (n.getMonth() + 1) * 100 + n.getDate(); })();
+                      const isActive = (() => {
+                        if (!p.dateFrom || !p.dateTo) return false;
+                        const [fd, fm] = p.dateFrom.split('.').map(Number);
+                        const [td, tm] = p.dateTo.split('.').map(Number);
+                        const from = fm * 100 + fd, to = tm * 100 + td;
+                        return from <= to ? nowMMDD >= from && nowMMDD <= to : nowMMDD >= from || nowMMDD <= to;
+                      })();
+                      const pkg = PACKAGES.find(pk => pk.key === p.targetPackage);
+                      return (
+                        <div key={p.id} className={`bg-white rounded-2xl border-2 shadow-sm transition-all ${p.includeInReport ? 'border-indigo-200' : 'border-slate-200'}`}>
+                          <div className="p-5">
+                            <div className="flex justify-between items-start mb-3 gap-2">
+                              <h3 className="text-base font-bold text-slate-900 leading-snug">{p.name}</h3>
+                              <div className="flex gap-1.5 shrink-0">
+                                {isActive && (
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                    Сейчас активен
+                                  </span>
+                                )}
+                                {p.includeInReport && (
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+                                    В записке
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-3 mb-3 text-xs text-slate-500">
+                              {p.dateFrom && p.dateTo && <span>📅 {p.dateFrom} — {p.dateTo}</span>}
+                              <span>⏱ {p.duration} дней</span>
+                              {(p.priceFrom > 0 || p.priceTo > 0) && (
+                                <span>💰 {p.priceFrom.toLocaleString('ru')}–{p.priceTo.toLocaleString('ru')} ₽</span>
+                              )}
+                              {pkg && <span className={`font-bold ${pkg.color}`}>{pkg.short}</span>}
+                            </div>
+                            <p className="text-sm text-slate-600 leading-relaxed mb-3">{p.description}</p>
+                            {p.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {p.tags.map((t, i) => (
+                                  <span key={i} className="text-[11px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full border border-slate-200">{t}</span>
+                                ))}
+                              </div>
+                            )}
+                            {p.notes && (
+                              <p className="text-xs text-slate-400 italic">{p.notes}</p>
+                            )}
+                          </div>
+                          <div className="px-5 pb-4 flex gap-2 border-t border-slate-100 pt-3">
+                            <button
+                              onClick={() => {
+                                setSeasonalForm({ ...p, tags: [...p.tags] });
+                                setSeasonalModal({ open: true, editing: p });
+                              }}
+                              className="flex-1 text-center text-xs font-semibold py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                            >
+                              Редактировать
+                            </button>
+                            <button
+                              onClick={() => setSeasonalProducts(prev => prev.map(sp => sp.id === p.id ? { ...sp, includeInReport: !sp.includeInReport } : sp))}
+                              className={`flex-1 text-center text-xs font-semibold py-2 rounded-lg transition-colors ${p.includeInReport ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' : 'bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50'}`}
+                            >
+                              {p.includeInReport ? '✓ В записке' : '+ В записку'}
+                            </button>
+                            <button
+                              onClick={() => { if (window.confirm(`Удалить «${p.name}»?`)) setSeasonalProducts(prev => prev.filter(sp => sp.id !== p.id)); }}
+                              className="text-xs font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Modal */}
+                {seasonalModal.open && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                    onClick={e => { if (e.target === e.currentTarget) setSeasonalModal({ open: false, editing: null }); }}
+                  >
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto">
+                      <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                        <h3 className="text-lg font-bold">{seasonalModal.editing ? 'Редактировать продукт' : 'Новый продукт'}</h3>
+                        <button onClick={() => setSeasonalModal({ open: false, editing: null })} className="text-slate-400 hover:text-slate-600 text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">✕</button>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Название *</label>
+                          <input type="text" value={seasonalForm.name || ''} onChange={e => setSeasonalForm(f => ({ ...f, name: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" placeholder="Название программы" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Описание</label>
+                          <textarea value={seasonalForm.description || ''} onChange={e => setSeasonalForm(f => ({ ...f, description: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400 resize-none" rows={3} placeholder="Краткое описание программы" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Длительность, дн.</label>
+                            <input type="number" value={seasonalForm.duration || ''} onChange={e => setSeasonalForm(f => ({ ...f, duration: parseInt(e.target.value) || 0 }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Дата начала</label>
+                            <input type="text" value={seasonalForm.dateFrom || ''} onChange={e => setSeasonalForm(f => ({ ...f, dateFrom: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" placeholder="01.03" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Дата окончания</label>
+                            <input type="text" value={seasonalForm.dateTo || ''} onChange={e => setSeasonalForm(f => ({ ...f, dateTo: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" placeholder="31.05" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Цена от, ₽</label>
+                            <input type="number" value={seasonalForm.priceFrom || ''} onChange={e => setSeasonalForm(f => ({ ...f, priceFrom: parseInt(e.target.value) || 0 }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Цена до, ₽</label>
+                            <input type="number" value={seasonalForm.priceTo || ''} onChange={e => setSeasonalForm(f => ({ ...f, priceTo: parseInt(e.target.value) || 0 }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Основной пакет</label>
+                          <select value={seasonalForm.targetPackage || 'med'} onChange={e => setSeasonalForm(f => ({ ...f, targetPackage: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400">
+                            {PACKAGES.map(pk => <option key={pk.key} value={pk.key}>{pk.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Теги (через запятую)</label>
+                          <input type="text" value={Array.isArray(seasonalForm.tags) ? seasonalForm.tags.join(', ') : ''} onChange={e => setSeasonalForm(f => ({ ...f, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" placeholder="грязелечение, физиотерапия, ..." />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Заметки (внутренние)</label>
+                          <textarea value={seasonalForm.notes || ''} onChange={e => setSeasonalForm(f => ({ ...f, notes: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400 resize-none" rows={2} placeholder="Внутренние примечания" />
+                        </div>
+                        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                          <input type="checkbox" checked={!!seasonalForm.includeInReport} onChange={e => setSeasonalForm(f => ({ ...f, includeInReport: e.target.checked }))} className="w-4 h-4 accent-indigo-600" />
+                          <span className="text-sm font-medium text-slate-700">Включить в Пояснительную записку</span>
+                        </label>
+                      </div>
+                      <div className="p-6 pt-0 flex gap-3">
+                        <button
+                          onClick={() => {
+                            if (!seasonalForm.name) return;
+                            const now = new Date().toISOString().split('T')[0];
+                            if (seasonalModal.editing) {
+                              setSeasonalProducts(prev => prev.map(sp => sp.id === seasonalModal.editing!.id ? { ...seasonalModal.editing!, ...seasonalForm as SeasonalProduct } : sp));
+                            } else {
+                              setSeasonalProducts(prev => [...prev, {
+                                id: `sp${Date.now()}`,
+                                name: seasonalForm.name || '',
+                                description: seasonalForm.description || '',
+                                duration: seasonalForm.duration || 7,
+                                dateFrom: seasonalForm.dateFrom || '',
+                                dateTo: seasonalForm.dateTo || '',
+                                priceFrom: seasonalForm.priceFrom || 0,
+                                priceTo: seasonalForm.priceTo || 0,
+                                targetPackage: seasonalForm.targetPackage || 'med',
+                                tags: seasonalForm.tags || [],
+                                notes: seasonalForm.notes || '',
+                                includeInReport: !!seasonalForm.includeInReport,
+                                createdAt: now,
+                              }]);
+                            }
+                            setSeasonalModal({ open: false, editing: null });
+                          }}
+                          className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors"
+                        >
+                          {seasonalModal.editing ? 'Сохранить' : 'Создать'}
+                        </button>
+                        <button onClick={() => setSeasonalModal({ open: false, editing: null })} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
+                          Отмена
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 
