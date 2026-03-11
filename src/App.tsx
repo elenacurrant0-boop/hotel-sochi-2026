@@ -78,8 +78,8 @@ const PRICE_PERIODS = [
 ];
 
 const MONTHS = [
-  { name: "Январь",   days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31 }] },
-  { name: "Февраль",  days: 28, distribution: [{ pIdx: 9, sKey: 'low',      days: 11 }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 9 }] },
+  { name: "Январь",   days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31, displayDates: "01.01–31.01" }] },
+  { name: "Февраль",  days: 28, distribution: [{ pIdx: 9, sKey: 'low',      days: 11, displayDates: "01.02–11.02" }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 9 }] },
   { name: "Март",     days: 31, distribution: [{ pIdx: 2, sKey: 'low',      days: 5  }, { pIdx: 1, sKey: 'low', days: 4 }, { pIdx: 2, sKey: 'low', days: 18 }, { pIdx: 1, sKey: 'low', days: 4 }] },
   { name: "Апрель",   days: 30, distribution: [{ pIdx: 1, sKey: 'low',      days: 30 }] },
   { name: "Май",      days: 31, distribution: [{ pIdx: 3, sKey: 'holidays', days: 2  }, { pIdx: 4, sKey: 'mid', days: 5 }, { pIdx: 3, sKey: 'holidays', days: 3 }, { pIdx: 4, sKey: 'mid', days: 21 }] },
@@ -88,8 +88,8 @@ const MONTHS = [
   { name: "Август",   days: 31, distribution: [{ pIdx: 6, sKey: 'peak',     days: 24 }, { pIdx: 7, sKey: 'high', days: 7 }] },
   { name: "Сентябрь", days: 30, distribution: [{ pIdx: 7, sKey: 'high',     days: 30 }] },
   { name: "Октябрь",  days: 31, distribution: [{ pIdx: 8, sKey: 'mid',      days: 31 }] },
-  { name: "Ноябрь",   days: 30, distribution: [{ pIdx: 9, sKey: 'low',      days: 30 }] },
-  { name: "Декабрь",  days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31 }] },
+  { name: "Ноябрь",   days: 30, distribution: [{ pIdx: 9, sKey: 'low',      days: 30, displayDates: "01.11–30.11" }] },
+  { name: "Декабрь",  days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31, displayDates: "01.12–31.12" }] },
 ];
 
 const initialPrices = () => {
@@ -5198,7 +5198,7 @@ export default function App() {
                                   return (
                                     <tr key={dIdx} className="border-t border-slate-100 even:bg-slate-50">
                                       <td className="py-2 px-3 font-mono font-bold text-slate-500">P{dist.pIdx}</td>
-                                      <td className="py-2 px-3 text-slate-500">{PRICE_PERIODS[dist.pIdx].dates}</td>
+                                      <td className="py-2 px-3 text-slate-500">{(dist as any).displayDates ?? PRICE_PERIODS[dist.pIdx].dates}</td>
                                       <td className="py-2 px-3 font-medium">{s.name}</td>
                                       <td className="py-2 px-3 text-center font-bold">{dist.days}</td>
                                       {ROOM_TYPES.filter(rt => (rooms[rt.key as keyof typeof rooms] || 0) > 0).map(rt => (
