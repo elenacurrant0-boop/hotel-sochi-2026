@@ -431,6 +431,20 @@ export default function App() {
 
   const [promoBasePkg, setPromoBasePkg] = useState('ultra');
   const [promoDiscount, setPromoDiscount] = useState(10);
+  // Per-period PROMO settings: custom name and auto/manual mode
+  const [promoPeriodSettings, setPromoPeriodSettings] = useState<{
+    [pIdx: number]: { name: string; mode: 'auto' | 'manual' }
+  }>({});
+  const getPromoSetting = (pIdx: number) => ({
+    name: promoPeriodSettings[pIdx]?.name || '',
+    mode: (promoPeriodSettings[pIdx]?.mode || 'auto') as 'auto' | 'manual',
+  });
+  const updatePromoSetting = (pIdx: number, field: 'name' | 'mode', value: string) => {
+    setPromoPeriodSettings(prev => ({
+      ...prev,
+      [pIdx]: { name: prev[pIdx]?.name || '', mode: prev[pIdx]?.mode || 'auto', [field]: value },
+    }));
+  };
 
   const [medAddonConfig, setMedAddonConfig] = useState({
     // Поток 1: Med-пакет (уже приехали на лечение, покупают доп. процедуры)
@@ -485,7 +499,8 @@ export default function App() {
   const getAllState = () => ({
     rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData, segmentCoeffs,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
-    globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff
+    globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff,
+    promoBasePkg, promoDiscount, promoPeriodSettings,
   });
 
   const setAllState = (data: any) => {
@@ -526,6 +541,9 @@ export default function App() {
     if (data.expenseModel) setExpenseModel(data.expenseModel);
     if (data.monthlyFact) setMonthlyFact(data.monthlyFact);
     if (data.monthlyGuestCoeff) setMonthlyGuestCoeff(data.monthlyGuestCoeff);
+    if (data.promoBasePkg) setPromoBasePkg(data.promoBasePkg);
+    if (data.promoDiscount !== undefined) setPromoDiscount(data.promoDiscount);
+    if (data.promoPeriodSettings) setPromoPeriodSettings(data.promoPeriodSettings);
   };
 
   // Load shared state on mount
@@ -920,13 +938,14 @@ export default function App() {
     setPrices((prev: any) => {
       const updated = { ...prev };
       ROOM_TYPES.forEach(rt => {
-        updated[rt.key].promo = PRICE_PERIODS.map((_pp, i) =>
-          Math.round(updated[rt.key][promoBasePkg][i] * (1 - promoDiscount / 100))
-        );
+        updated[rt.key].promo = PRICE_PERIODS.map((_pp, i) => {
+          if ((promoPeriodSettings[i]?.mode || 'auto') === 'manual') return prev[rt.key].promo[i];
+          return Math.round(updated[rt.key][promoBasePkg][i] * (1 - promoDiscount / 100));
+        });
       });
       return updated;
     });
-  }, [promoBasePkg, promoDiscount]);
+  }, [promoBasePkg, promoDiscount, promoPeriodSettings]);
 
   const handleSeasonPeriodChange = (sKey: string, field: string, val: string) => {
     setSeasons(prev => prev.map(s => s.key === sKey ? { ...s, [field]: val } : s));
@@ -4802,12 +4821,23 @@ export default function App() {
                             <th className="w-48">Категория</th>
                             {PACKAGES.map(pk => (
                               <th key={pk.key} className="text-center">
-                                {pk.short}
-                                {pk.key === 'promo' && (
-                                  <div className="text-[8px] font-normal text-slate-400 mt-1">
-                                    -{promoDiscount}% от {PACKAGES.find(p => p.key === promoBasePkg)?.short}
+                                {pk.key === 'promo' ? (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={getPromoSetting(pp.pIdx).name}
+                                      onChange={(e) => updatePromoSetting(pp.pIdx, 'name', e.target.value)}
+                                      placeholder="ПРОМО"
+                                      className="text-center font-bold text-sm bg-transparent border-b border-dashed border-red-300 focus:border-red-500 outline-none w-24 text-red-600"
+                                    />
+                                    <button
+                                      onClick={() => updatePromoSetting(pp.pIdx, 'mode', getPromoSetting(pp.pIdx).mode === 'auto' ? 'manual' : 'auto')}
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-colors ${getPromoSetting(pp.pIdx).mode === 'auto' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
+                                    >
+                                      {getPromoSetting(pp.pIdx).mode === 'auto' ? `авто −${promoDiscount}%` : 'ручная цена'}
+                                    </button>
                                   </div>
-                                )}
+                                ) : pk.short}
                               </th>
                             ))}
                           </tr>
@@ -4823,8 +4853,8 @@ export default function App() {
                                     value={prices[rt.key][pk.key][pp.pIdx] || ''}
                                     placeholder="—"
                                     onChange={(e) => handlePriceChange(rt.key, pk.key, pp.pIdx, e.target.value)}
-                                    disabled={pk.key === 'promo'}
-                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][pp.pIdx] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={pk.key === 'promo' && getPromoSetting(pp.pIdx).mode === 'auto'}
+                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][pp.pIdx] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' && getPromoSetting(pp.pIdx).mode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   />
                                 </td>
                               ))}
@@ -4964,9 +4994,27 @@ export default function App() {
                     </div>
                     <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
                       <p className="text-xs text-indigo-700 leading-relaxed">
-                        <b>Автоматический расчет:</b> Тариф ПРОМО будет составлять <b>{100 - promoDiscount}%</b> от цены тарифа <b>{PACKAGES.find(p => p.key === promoBasePkg)?.label}</b>. 
-                        Расчет применяется только для Низких сезонов.
+                        <b>Авто-режим:</b> цена = <b>{100 - promoDiscount}%</b> от тарифа <b>{PACKAGES.find(p => p.key === promoBasePkg)?.label}</b>.
+                        В <b>ручном режиме</b> — вводишь цену напрямую в прейскуранте. Название тоже можно менять под каждый период (ФСС, Корпоратив и т.д.).
                       </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Режим по периодам</label>
+                      <div className="space-y-1">
+                        {PRICE_PERIODS.map(pp => {
+                          const s = getPromoSetting(pp.pIdx);
+                          return (
+                            <div key={pp.pIdx} className="flex items-center gap-2 text-xs">
+                              <span className="text-slate-400 w-6 text-right">{pp.pIdx + 1}</span>
+                              <span className="text-slate-500 flex-1 truncate">{pp.dates}</span>
+                              <span className={`px-2 py-0.5 rounded font-bold ${s.mode === 'auto' ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
+                                {s.mode === 'auto' ? 'авто' : 'ручная'}
+                              </span>
+                              {s.name && <span className="text-red-500 font-semibold truncate max-w-[80px]">{s.name}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
