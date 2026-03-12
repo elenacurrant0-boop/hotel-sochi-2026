@@ -110,6 +110,33 @@ interface SeasonalProduct {
   createdAt: string;
 }
 
+interface PartnerChannel {
+  id: string;
+  name: string;
+  type: 'corporate' | 'ta' | 'ota' | 'fss' | 'promo';
+  basePackage: string;
+  pricingType: 'discount' | 'netto' | 'commission';
+  defaultValue: number;         // % или фикс-цена (зависит от pricingType)
+  periodValues: { [pIdx: number]: number }; // переопределение по периоду
+  allocationShare: number;      // % от загрузки
+  notes: string;
+  active: boolean;
+}
+
+const PARTNER_TYPE_LABELS: Record<PartnerChannel['type'], { label: string; color: string }> = {
+  corporate: { label: 'Корпоратив', color: 'bg-blue-100 text-blue-700' },
+  ta:        { label: 'ТА',         color: 'bg-emerald-100 text-emerald-700' },
+  ota:       { label: 'OTA',        color: 'bg-orange-100 text-orange-700' },
+  fss:       { label: 'ФСС / ДМС',  color: 'bg-purple-100 text-purple-700' },
+  promo:     { label: 'Акция',      color: 'bg-red-100 text-red-700' },
+};
+
+const PRICING_TYPE_LABELS: Record<PartnerChannel['pricingType'], string> = {
+  discount:   'Скидка % от тарифа',
+  commission: 'Брутто + комиссия %',
+  netto:      'Нетто-цена (фикс)',
+};
+
 const INITIAL_SEASONAL_PRODUCTS: SeasonalProduct[] = [
   {
     id: 'sp1',
@@ -372,6 +399,17 @@ export default function App() {
   const [seasonalModal, setSeasonalModal] = useState<{ open: boolean; editing: SeasonalProduct | null }>({ open: false, editing: null });
   const [seasonalForm, setSeasonalForm] = useState<Partial<SeasonalProduct>>({});
 
+  const [partners, setPartners] = useState<PartnerChannel[]>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_partners');
+      if (saved) return JSON.parse(saved) as PartnerChannel[];
+    } catch (e) {}
+    return [];
+  });
+  const [partnerModal, setPartnerModal] = useState<{ open: boolean; editing: PartnerChannel | null }>({ open: false, editing: null });
+  const [partnerForm, setPartnerForm] = useState<Partial<PartnerChannel>>({});
+  const [partnerPeriodMode, setPartnerPeriodMode] = useState(false); // показывать таблицу периодов в модале
+
   const [promoProposals, setPromoProposals] = useState('');
   const [competitorAnalysis, setCompetitorAnalysis] = useState('');
   const [competitorList, setCompetitorList] = useState('');
@@ -597,6 +635,13 @@ export default function App() {
       localStorage.setItem('sochi_seasonal_products', JSON.stringify(seasonalProducts));
     } catch (e) {}
   }, [seasonalProducts]);
+
+  // Save partners to localStorage separately
+  useEffect(() => {
+    try {
+      localStorage.setItem('sochi_partners', JSON.stringify(partners));
+    } catch (e) {}
+  }, [partners]);
 
   const toggleSandbox = () => {
     const next = !isSandbox;
@@ -1390,6 +1435,7 @@ export default function App() {
                 { id: 'dashboard', label: 'Сводная панель', icon: LayoutDashboard, roles: ['ADMIN', 'OWNER', 'DEMO'] },
                 { id: 'medicine', label: 'Медицина', icon: Stethoscope, roles: ['ADMIN', 'OWNER', 'DEMO'], demoLocked: true },
                 { id: 'seasonal', label: 'Сезонные продукты', icon: ShoppingBag, roles: ['ADMIN', 'OWNER'] },
+                { id: 'partners', label: 'Партнёры и каналы', icon: Briefcase, roles: ['ADMIN', 'OWNER'] },
                 { id: 'packages', label: 'Пакетные предложения', icon: Layers, demoLocked: true },
                 { id: 'calculation', label: 'Калькуляция цен', icon: Calculator, roles: ['ADMIN', 'OWNER', 'DEMO'], demoLocked: true },
               ]
@@ -5849,6 +5895,215 @@ export default function App() {
                 )}
               </motion.div>
             )}
+
+            {activeTab === 'partners' && (userRole === 'ADMIN' || userRole === 'OWNER') && (() => {
+              const EMPTY_PARTNER: Omit<PartnerChannel, 'id'> = { name: '', type: 'corporate', basePackage: 'hb', pricingType: 'discount', defaultValue: 10, periodValues: {}, allocationShare: 5, notes: '', active: true };
+              const getEffectiveValue = (p: PartnerChannel, pIdx: number) => p.periodValues[pIdx] !== undefined ? p.periodValues[pIdx] : p.defaultValue;
+              const getEffectivePrice = (p: PartnerChannel, pIdx: number) => {
+                const basePrice = prices[ROOM_TYPES[0].key]?.[p.basePackage]?.[pIdx] ?? 0;
+                if (p.pricingType === 'netto') return getEffectiveValue(p, pIdx);
+                return Math.round(basePrice * (1 - getEffectiveValue(p, pIdx) / 100));
+              };
+              const totalAlloc = partners.filter(p => p.active).reduce((s, p) => s + p.allocationShare, 0);
+              return (
+                <motion.div key="partners" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+                  {/* Header */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2"><Briefcase className="text-indigo-500" /> Партнёры и каналы продаж</h2>
+                      <p className="text-sm text-slate-500 mt-1">Управляйте партнёрскими тарифами: корпоративы, ТА, OTA, ФСС/ДМС, промоакции. Цена — скидка от тарифа, нетто-цена или брутто с комиссией.</p>
+                    </div>
+                    <button onClick={() => { setPartnerForm({ ...EMPTY_PARTNER }); setPartnerPeriodMode(false); setPartnerModal({ open: true, editing: null }); }} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shrink-0">
+                      <Plus size={16} /> Добавить партнёра
+                    </button>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="flex flex-wrap gap-4">
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3"><p className="text-[10px] font-bold uppercase text-indigo-600 tracking-wide">Партнёров</p><p className="text-2xl font-black text-indigo-700">{partners.length}</p></div>
+                    <div className={`border rounded-xl px-5 py-3 ${totalAlloc > 100 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wide ${totalAlloc > 100 ? 'text-red-600' : 'text-emerald-600'}`}>Суммарная доля</p>
+                      <p className={`text-2xl font-black ${totalAlloc > 100 ? 'text-red-700' : 'text-emerald-700'}`}>{totalAlloc}%</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-3"><p className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Прямые продажи</p><p className="text-2xl font-black text-slate-700">{Math.max(0, 100 - totalAlloc)}%</p></div>
+                  </div>
+
+                  {partners.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center">
+                      <Briefcase size={40} className="text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-500 font-semibold">Партнёры не добавлены</p>
+                      <p className="text-slate-400 text-sm mt-1">Нажмите «Добавить партнёра» чтобы начать</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600">Партнёр</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600">Тип</th>
+                              <th className="text-left px-4 py-3 font-semibold text-slate-600">Условие</th>
+                              <th className="text-center px-4 py-3 font-semibold text-slate-600">Доля</th>
+                              <th className="text-center px-4 py-3 font-semibold text-slate-600">Цена (ст. номер / П1)</th>
+                              <th className="text-center px-4 py-3 font-semibold text-slate-600">Статус</th>
+                              <th className="px-4 py-3"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {partners.map(p => {
+                              const typeInfo = PARTNER_TYPE_LABELS[p.type];
+                              const effectiveP0 = getEffectivePrice(p, 0);
+                              const hasOverrides = Object.keys(p.periodValues).length > 0;
+                              return (
+                                <tr key={p.id} className={`hover:bg-slate-50 transition-colors ${!p.active ? 'opacity-50' : ''}`}>
+                                  <td className="px-4 py-3">
+                                    <p className="font-semibold text-slate-800">{p.name}</p>
+                                    {p.notes && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]">{p.notes}</p>}
+                                  </td>
+                                  <td className="px-4 py-3"><span className={`text-xs font-bold px-2 py-1 rounded-full ${typeInfo.color}`}>{typeInfo.label}</span></td>
+                                  <td className="px-4 py-3">
+                                    <p className="text-xs text-slate-600">{PRICING_TYPE_LABELS[p.pricingType]}</p>
+                                    <p className="text-xs font-bold text-slate-800 mt-0.5">
+                                      {p.pricingType === 'netto' ? `${p.defaultValue.toLocaleString('ru')} ₽` : `${p.defaultValue}%`}
+                                      {hasOverrides && <span className="ml-1 text-orange-500 font-normal">(есть периодные)</span>}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">база: {PACKAGES.find(pk => pk.key === p.basePackage)?.short}</p>
+                                  </td>
+                                  <td className="px-4 py-3 text-center"><span className="font-bold text-slate-700">{p.allocationShare}%</span></td>
+                                  <td className="px-4 py-3 text-center">
+                                    <span className="font-mono font-bold text-indigo-600">{effectiveP0 > 0 ? `${effectiveP0.toLocaleString('ru')} ₽` : '—'}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <button onClick={() => setPartners(prev => prev.map(x => x.id === p.id ? { ...x, active: !x.active } : x))} className={`text-xs font-bold px-2 py-1 rounded-full transition-colors ${p.active ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                      {p.active ? 'Активен' : 'Откл.'}
+                                    </button>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex gap-2">
+                                      <button onClick={() => { setPartnerForm({ ...p }); setPartnerPeriodMode(Object.keys(p.periodValues).length > 0); setPartnerModal({ open: true, editing: p }); }} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">Изменить</button>
+                                      <button onClick={() => { if (window.confirm(`Удалить «${p.name}»?`)) setPartners(prev => prev.filter(x => x.id !== p.id)); }} className="text-xs text-red-500 hover:text-red-700 font-semibold">Удалить</button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Modal */}
+                  {partnerModal.open && (
+                    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={e => { if (e.target === e.currentTarget) setPartnerModal({ open: false, editing: null }); }}>
+                      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8">
+                        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+                          <h3 className="text-lg font-bold">{partnerModal.editing ? 'Редактировать партнёра' : 'Новый партнёр'}</h3>
+                          <button onClick={() => setPartnerModal({ open: false, editing: null })} className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Название</label>
+                            <input type="text" value={partnerForm.name || ''} onChange={e => setPartnerForm(f => ({ ...f, name: e.target.value }))} placeholder="Например: ФСС Краснодарского края" className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Тип</label>
+                              <select value={partnerForm.type || 'corporate'} onChange={e => setPartnerForm(f => ({ ...f, type: e.target.value as PartnerChannel['type'] }))} className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+                                {Object.entries(PARTNER_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Базовый тариф</label>
+                              <select value={partnerForm.basePackage || 'hb'} onChange={e => setPartnerForm(f => ({ ...f, basePackage: e.target.value }))} className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+                                {PACKAGES.map(pk => <option key={pk.key} value={pk.key}>{pk.short}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Тип ценообразования</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(Object.entries(PRICING_TYPE_LABELS) as [PartnerChannel['pricingType'], string][]).map(([k, v]) => (
+                                <button key={k} onClick={() => setPartnerForm(f => ({ ...f, pricingType: k }))} className={`text-xs font-semibold p-2 rounded-lg border transition-colors text-center ${partnerForm.pricingType === k ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}`}>{v}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">
+                                {partnerForm.pricingType === 'netto' ? 'Нетто-цена (₽)' : 'Ставка (%)'}
+                              </label>
+                              <input type="number" value={partnerForm.defaultValue ?? 10} onChange={e => setPartnerForm(f => ({ ...f, defaultValue: parseFloat(e.target.value) || 0 }))} className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                              <p className="text-[10px] text-slate-400 mt-1">{partnerForm.pricingType === 'netto' ? 'Отель получает эту сумму' : 'Единая ставка для всех периодов'}</p>
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Доля загрузки (%)</label>
+                              <input type="number" value={partnerForm.allocationShare ?? 5} min={0} max={100} onChange={e => setPartnerForm(f => ({ ...f, allocationShare: parseFloat(e.target.value) || 0 }))} className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-xs font-bold text-slate-500 uppercase">Ставки по периодам</label>
+                              <button onClick={() => setPartnerPeriodMode(v => !v)} className={`text-xs font-bold px-2 py-1 rounded transition-colors ${partnerPeriodMode ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                {partnerPeriodMode ? 'скрыть' : 'задать по периодам'}
+                              </button>
+                            </div>
+                            {partnerPeriodMode && (
+                              <div className="space-y-1 border rounded-lg p-3 bg-slate-50">
+                                {PRICE_PERIODS.map(pp => (
+                                  <div key={pp.pIdx} className="flex items-center gap-3 text-xs">
+                                    <span className="text-slate-400 w-4 text-right">{pp.pIdx + 1}</span>
+                                    <span className="text-slate-500 flex-1 truncate">{pp.dates}</span>
+                                    <input
+                                      type="number"
+                                      placeholder={String(partnerForm.defaultValue ?? '')}
+                                      value={partnerForm.periodValues?.[pp.pIdx] ?? ''}
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        setPartnerForm(f => {
+                                          const pv = { ...(f.periodValues || {}) };
+                                          if (val === '') { delete pv[pp.pIdx]; } else { pv[pp.pIdx] = parseFloat(val); }
+                                          return { ...f, periodValues: pv };
+                                        });
+                                      }}
+                                      className="w-20 border rounded p-1 text-right text-xs outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                                    />
+                                    <span className="text-slate-400">{partnerForm.pricingType === 'netto' ? '₽' : '%'}</span>
+                                  </div>
+                                ))}
+                                <p className="text-[10px] text-slate-400 mt-1">Пустое поле — используется единая ставка</p>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Примечание</label>
+                            <textarea value={partnerForm.notes || ''} onChange={e => setPartnerForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Договор №..., срок действия, контактное лицо..." className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400 resize-none" />
+                          </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+                          <button onClick={() => setPartnerModal({ open: false, editing: null })} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800">Отмена</button>
+                          <button
+                            disabled={!partnerForm.name?.trim()}
+                            onClick={() => {
+                              if (!partnerForm.name?.trim()) return;
+                              if (partnerModal.editing) {
+                                setPartners(prev => prev.map(x => x.id === partnerModal.editing!.id ? { ...partnerModal.editing!, ...partnerForm as PartnerChannel } : x));
+                              } else {
+                                setPartners(prev => [...prev, { ...EMPTY_PARTNER, ...partnerForm as PartnerChannel, id: `p_${Date.now()}` }]);
+                              }
+                              setPartnerModal({ open: false, editing: null });
+                            }}
+                            className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                          >
+                            {partnerModal.editing ? 'Сохранить' : 'Добавить'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
 
             {activeTab === 'settings' && (
               <motion.div 
