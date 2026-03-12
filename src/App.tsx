@@ -487,6 +487,18 @@ export default function App() {
     return {};
   });
 
+  // Per-package accommodation overrides (₽/guest-night, keyed by pk.key + '_' + pIdx for period-sensitivity)
+  const [pkgAccOverrides, setPkgAccOverrides] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.pkgAccOverrides) return parsed.pkgAccOverrides;
+      }
+    } catch(e) {}
+    return {};
+  });
+
   const getPkgComponents = (pkKey: string) => {
     const overrides = pkgCalcOverrides[pkKey] || {};
     const merged = { ...calcConfig, ...overrides };
@@ -657,7 +669,7 @@ export default function App() {
   // --- Data Sync Logic ---
   const getAllState = () => ({
     rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData, segmentCoeffs,
-    costConfig, calcConfig, pkgCalcOverrides, medAddonConfig, roomMonthlyData,
+    costConfig, calcConfig, pkgCalcOverrides, pkgAccOverrides, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff,
     promoConfigs, packageLabels,
   });
@@ -703,6 +715,7 @@ export default function App() {
       // old format with fb_ultra_spa — skip, keep defaults
     }
     if (data.pkgCalcOverrides) setPkgCalcOverrides(data.pkgCalcOverrides);
+    if (data.pkgAccOverrides) setPkgAccOverrides(data.pkgAccOverrides);
     if (data.medAddonConfig) setMedAddonConfig(data.medAddonConfig);
     if (data.roomMonthlyData) setRoomMonthlyData(data.roomMonthlyData);
     if (data.globalPriceAdj !== undefined) setGlobalPriceAdj(data.globalPriceAdj);
@@ -5536,8 +5549,12 @@ export default function App() {
                           const foodTotal = comp.food;
                           const spa = comp.spa;
                           const med = comp.med;
-                          const acc = price - foodTotal - spa - med;
-                          const sum = price;
+                          // Проживание: per-period override key = pk.key + ':' + calcSeason
+                          const accKey = `${pk.key}:${calcSeason}`;
+                          const accDefault = price - foodTotal - spa - med;
+                          const displayAcc = pkgAccOverrides[accKey] !== undefined ? pkgAccOverrides[accKey] : accDefault;
+                          const displayItogo = foodTotal + spa + med + displayAcc;
+                          const itogoOk = displayItogo === price;
 
                           const makeBlurHandler = (field: keyof typeof calcConfig) =>
                             (e: React.FocusEvent<HTMLInputElement>) =>
@@ -5582,8 +5599,21 @@ export default function App() {
                                     className="w-20 text-right bg-transparent border-b border-dashed border-purple-400 outline-none font-bold text-sm" />
                                 ) : <span className="text-slate-300">—</span>}
                               </td>
-                              <td className="p-3 border border-slate-200 text-right font-bold text-indigo-600">{acc.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right font-black text-lg text-emerald-600">{sum.toLocaleString()}</td>
+                              {/* Проживание — редактируемое, per-period */}
+                              <td className="p-3 border border-slate-200 text-right font-bold text-indigo-600">
+                                <input
+                                  key={`${pk.key}-acc-${calcSeason}`}
+                                  type="number"
+                                  defaultValue={displayAcc}
+                                  onBlur={(e) => setPkgAccOverrides(prev => ({ ...prev, [accKey]: parseInt(e.target.value) || 0 }))}
+                                  className="w-20 text-right bg-transparent border-b border-dashed border-indigo-400 outline-none font-bold text-sm"
+                                />
+                              </td>
+                              {/* Итого = сумма компонентов, зелёный если = цене, красный если ≠ */}
+                              <td className={`p-3 border border-slate-200 text-right font-black text-lg ${itogoOk ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {displayItogo.toLocaleString()}
+                                {!itogoOk && <div className="text-[9px] font-normal">{displayItogo > price ? `+${(displayItogo - price).toLocaleString()}` : `${(displayItogo - price).toLocaleString()}`}</div>}
+                              </td>
                             </tr>
                           );
                         })}
