@@ -111,6 +111,12 @@ const MONTHS = [
   { name: "Декабрь",  days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31, displayDates: "01.12–31.12" }] },
 ];
 
+// Sanity check: every month's distribution days must sum to m.days
+MONTHS.forEach(m => {
+  const sum = m.distribution.reduce((acc, d) => acc + d.days, 0);
+  if (sum !== m.days) console.error(`[MONTHS] ${m.name}: distribution sum ${sum} ≠ ${m.days} days`);
+});
+
 interface SeasonalProduct {
   id: string;
   name: string;
@@ -5743,6 +5749,22 @@ export default function App() {
                                   );
                                 })}
                               </tbody>
+                              <tfoot>
+                                {(() => {
+                                  const daysSum = mo.distribution.reduce((s, d) => s + d.days, 0);
+                                  const ok = daysSum === mo.days;
+                                  return (
+                                    <tr className={`border-t-2 ${ok ? 'border-emerald-300 bg-emerald-50' : 'border-red-400 bg-red-50'}`}>
+                                      <td colSpan={4} className={`py-2 px-3 text-xs font-bold ${ok ? 'text-emerald-700' : 'text-red-700'}`}>
+                                        {ok
+                                          ? `✓ Итого в расчёте: ${daysSum} дн. = ${mo.days} дн. в месяце`
+                                          : `⚠ Ошибка: в расчёте ${daysSum} дн., должно быть ${mo.days} дн.`}
+                                      </td>
+                                      <td colSpan={99} />
+                                    </tr>
+                                  );
+                                })()}
+                              </tfoot>
                             </table>
                           </div>
                         </div>
