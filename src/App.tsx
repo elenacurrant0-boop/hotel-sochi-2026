@@ -458,13 +458,33 @@ export default function App() {
   const [competitorList, setCompetitorList] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const [calcConfig, setCalcConfig] = useState({
-    // food/spa/med/acc должны суммироваться в 100% от цены
-    // b/l/d (завтрак/обед/ужин) должны суммироваться в 100% от food
-    fb_ultra_spa: { food: 50, b: 25, l: 35, d: 40, spa: 5, med: 5, acc: 40 },
-    ultra_med:    { food: 30, b: 25, l: 35, d: 40, spa: 5, med: 25, acc: 40 },
-    others: { spa: 5, med: 5 }
+  const [calcConfig, setCalcConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.calcConfig && 'b' in parsed.calcConfig) return parsed.calcConfig;
+      }
+    } catch(e) {}
+    return { b: 413, l: 578, d: 659, extra: 0, spa: 165, med: 1025 };
   });
+
+  const getPkgComponents = (pkKey: string) => {
+    const { b, l, d, extra, spa, med } = calcConfig;
+    const getForBase = (key: string) => {
+      switch (key) {
+        case 'aqua_bb': return { food: b,               b, l: 0, d: 0,  extra: 0, spa: 0, med: 0 };
+        case 'aqua_hb': return { food: b + d,            b, l: 0, d,     extra: 0, spa: 0, med: 0 };
+        case 'aqua_fb': return { food: b + l + d,        b, l,    d,     extra: 0, spa: 0, med: 0 };
+        case 'ultra':   return { food: b + l + d + extra, b, l,   d, extra, spa,    med: 0 };
+        case 'spa':     return { food: b + l + d + extra, b, l,   d, extra, spa,    med: 0 };
+        case 'med':     return { food: b + l + d + extra, b, l,   d, extra, spa,    med    };
+        default:        return { food: 0, b: 0, l: 0, d: 0, extra: 0, spa: 0, med: 0 };
+      }
+    };
+    if (PROMO_KEYS.includes(pkKey)) return getForBase(promoConfigs[pkKey]?.basePkg ?? 'ultra');
+    return getForBase(pkKey);
+  };
 
   const [calcSeason, setCalcSeason] = useState(0);
   const [calcRoom, setCalcRoom] = useState('standard');
@@ -657,7 +677,11 @@ export default function App() {
     if (data.segmentData) setSegmentData(data.segmentData);
     if (data.segmentCoeffs) setSegmentCoeffs(data.segmentCoeffs);
     if (data.costConfig) setCostConfig(data.costConfig);
-    if (data.calcConfig) setCalcConfig(data.calcConfig);
+    if (data.calcConfig) {
+      // migrate old % format → new absolute ₽ format
+      if ('b' in data.calcConfig) setCalcConfig(data.calcConfig);
+      // old format with fb_ultra_spa — skip, keep defaults
+    }
     if (data.medAddonConfig) setMedAddonConfig(data.medAddonConfig);
     if (data.roomMonthlyData) setRoomMonthlyData(data.roomMonthlyData);
     if (data.globalPriceAdj !== undefined) setGlobalPriceAdj(data.globalPriceAdj);
@@ -893,23 +917,12 @@ export default function App() {
               mMedBedDaysFact += pkgBDFact;
             }
 
-            // --- Precise Food Cost Calculation ---
-            let foodPct = 0;
-            if (['spa', 'ultra'].includes(pk.key)) foodPct = calcConfig.fb_ultra_spa.food;
-            else if (pk.key === 'med') foodPct = calcConfig.ultra_med.food;
-            else if (pk.key === 'aqua_fb') foodPct = 50; // Default for FB
-            else if (pk.key === 'aqua_hb') foodPct = 35; // Default for HB
-            else if (pk.key === 'aqua_bb') foodPct = 20; // Default for BB
-
-            const pkgFoodRev = revBase * (foodPct / 100);            // затраты на питание — от базовой цены
+            // --- Food & Med Cost Calculation (absolute ₽ per guest-night) ---
+            const comp = getPkgComponents(pk.key);
+            const pkgGuestNights = price > 0 ? revBase / price : 0;
+            const pkgFoodRev = pkgGuestNights * comp.food;
             mFoodCost += pkgFoodRev * (costConfig.foodCostPct / 100);
-
-            // Internal Medical Revenue Component
-            let medPct = 0;
-            if (pk.key === 'med') medPct = calcConfig.ultra_med.med;
-            else if (['aqua_fb', 'ultra', 'spa', 'promo'].includes(pk.key)) medPct = calcConfig.fb_ultra_spa.med;
-            else medPct = calcConfig.others.med;
-            mInternalMedRev += revBase * (medPct / 100);             // внутренняя медицина — от базовой
+            mInternalMedRev += pkgGuestNights * comp.med;
 
             byRoomPlan[rt.key as keyof typeof byRoomPlan] += rev;
             byPkgPlan[pk.key as keyof typeof byPkgPlan] += rev;
@@ -1050,7 +1063,7 @@ export default function App() {
       totalInternalMedRev, totalFullMedRev, totalRoomRev, totalBudget,
       totalADR, totalRevPAR, totalTRevPAR
     };
-  }, [rooms, pkgMixByMonth, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff]);
+  }, [rooms, pkgMixByMonth, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff, promoConfigs]);
 
   // Annual average package mix (for display in reports/tables)
   const avgPkgMix = Object.fromEntries(PACKAGES.map(pk => [
@@ -5380,101 +5393,35 @@ export default function App() {
               >
                 {/* Configuration Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 no-print">
-                  <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800">
-                    <Calculator className="text-indigo-500" /> 
-                    Настройка коэффициентов калькуляции
+                  <h2 className="text-lg font-bold mb-1 flex items-center gap-2 text-slate-800">
+                    <Calculator className="text-indigo-500" />
+                    Стоимость компонентов (₽ в сутки на гостя)
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* FB, Ultra, SPA */}
-                    <div className="space-y-4">
-                      <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Тарифы FB, Ultra, Ultra+SPA</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Питание %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.food} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, food: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Проживание %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.acc} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, acc: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">SPA %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.spa} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, spa: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Медицина %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.med} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, med: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Завтрак %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.b} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, b: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-1 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Обед %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.l} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, l: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-1 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Ужин %</label>
-                          <input type="number" value={calcConfig.fb_ultra_spa.d} onChange={(e) => setCalcConfig(prev => ({ ...prev, fb_ultra_spa: { ...prev.fb_ultra_spa, d: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-1 text-sm" />
+                  <p className="text-[11px] text-slate-400 mb-4">Значения применяются ко всем пакетам и периодам. Редактировать можно и здесь, и прямо в таблице ниже.</p>
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    {([
+                      { key: 'b',     label: 'Завтрак',       color: 'text-amber-700' },
+                      { key: 'l',     label: 'Обед',          color: 'text-amber-700' },
+                      { key: 'd',     label: 'Ужин',          color: 'text-amber-700' },
+                      { key: 'extra', label: 'Доп. питание',  color: 'text-amber-500' },
+                      { key: 'spa',   label: 'СПА',           color: 'text-cyan-700'  },
+                      { key: 'med',   label: 'Медицина',      color: 'text-purple-700'},
+                    ] as const).map(({ key, label, color }) => (
+                      <div key={key}>
+                        <label className={`text-[10px] uppercase font-bold block mb-1 ${color}`}>{label}</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={calcConfig[key]}
+                            onChange={(e) => setCalcConfig(prev => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))}
+                            className="w-full border rounded p-2 font-bold pr-6"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">₽</span>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Ultra+MED */}
-                    <div className="space-y-4">
-                      <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Тарифы Ultra+MED</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Питание %</label>
-                          <input type="number" value={calcConfig.ultra_med.food} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, food: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Проживание %</label>
-                          <input type="number" value={calcConfig.ultra_med.acc} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, acc: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">SPA %</label>
-                          <input type="number" value={calcConfig.ultra_med.spa} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, spa: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Медицина %</label>
-                          <input type="number" value={calcConfig.ultra_med.med} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, med: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Завтрак %</label>
-                          <input type="number" value={calcConfig.ultra_med.b} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, b: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-1 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Обед %</label>
-                          <input type="number" value={calcConfig.ultra_med.l} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, l: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-1 text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Ужин %</label>
-                          <input type="number" value={calcConfig.ultra_med.d} onChange={(e) => setCalcConfig(prev => ({ ...prev, ultra_med: { ...prev.ultra_med, d: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-1 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* BB / HB */}
-                    <div className="space-y-4">
-                      <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Тарифы BB / HB (Прочие)</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">SPA %</label>
-                          <input type="number" value={calcConfig.others.spa} onChange={(e) => setCalcConfig(prev => ({ ...prev, others: { ...prev.others, spa: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Медицина %</label>
-                          <input type="number" value={calcConfig.others.med} onChange={(e) => setCalcConfig(prev => ({ ...prev, others: { ...prev.others, med: parseInt(e.target.value) || 0 } }))} className="w-full border rounded p-2 font-bold" />
-                        </div>
-                      </div>
-                      <p className="text-[9px] text-slate-400 italic mt-2">* Питание для BB/HB рассчитывается на основе стоимости завтрака/ужина из тарифа Ultra. Остаток относится на проживание.</p>
-                    </div>
+                    ))}
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-3">СПА включается в: Ультра, Ультра+СПА, Ультра МЕД · Медицина — только Ультра МЕД · BB/HB/FB — только питание</p>
                 </div>
 
                 {/* Calculation Table Section */}
@@ -5506,7 +5453,7 @@ export default function App() {
                         <tr className="bg-slate-900 text-white">
                           <th className="p-3 border border-slate-700 text-left" rowSpan={2}>Тариф / Пакет</th>
                           <th className="p-3 border border-slate-700 text-right" rowSpan={2}>Цена<br/><span className="text-[9px] font-normal opacity-60">за к-день, ₽</span></th>
-                          <th className="p-3 border border-slate-700 text-center bg-amber-900" colSpan={4}>Питание</th>
+                          <th className="p-3 border border-slate-700 text-center bg-amber-900" colSpan={5}>Питание</th>
                           <th className="p-3 border border-slate-700 text-right bg-cyan-900" rowSpan={2}>SPA</th>
                           <th className="p-3 border border-slate-700 text-right bg-purple-900" rowSpan={2}>Медицина</th>
                           <th className="p-3 border border-slate-700 text-right bg-indigo-900" rowSpan={2}>Проживание</th>
@@ -5517,6 +5464,7 @@ export default function App() {
                           <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Завтрак</th>
                           <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Обед</th>
                           <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Ужин</th>
+                          <th className="p-2 border border-slate-700 text-right bg-amber-950 opacity-70">Доп.пит.</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5524,68 +5472,67 @@ export default function App() {
                           const price = prices[calcRoom][pk.key][calcSeason];
                           if (price === 0) return null;
 
-                          // Calculation logic
-                          const getBaseFood = () => {
-                            const ultraPrice = prices[calcRoom]['ultra'][calcSeason];
-                            const foodTotal = ultraPrice * calcConfig.fb_ultra_spa.food / 100;
-                            return {
-                              b: Math.round(foodTotal * calcConfig.fb_ultra_spa.b / 100),
-                              l: Math.round(foodTotal * calcConfig.fb_ultra_spa.l / 100),
-                              d: Math.round(foodTotal * calcConfig.fb_ultra_spa.d / 100)
-                            };
-                          };
+                          // Calculation from absolute component values
+                          const comp = getPkgComponents(pk.key);
+                          const { b, l, d, extra } = comp;
+                          const foodTotal = comp.food;
+                          const spa = comp.spa;
+                          const med = comp.med;
+                          const acc = price - foodTotal - spa - med;
+                          const sum = price;
 
-                          let b=0, l=0, d=0, spa=0, med=0, acc=0, foodTotal=0;
-
-                          if (['aqua_fb', 'ultra', 'spa', 'promo'].includes(pk.key)) {
-                            foodTotal = Math.round(price * calcConfig.fb_ultra_spa.food / 100);
-                            b = Math.round(foodTotal * calcConfig.fb_ultra_spa.b / 100);
-                            l = Math.round(foodTotal * calcConfig.fb_ultra_spa.l / 100);
-                            d = foodTotal - b - l; // остаток — ужин, чтобы b+l+d = foodTotal точно
-                            spa = Math.round(price * calcConfig.fb_ultra_spa.spa / 100);
-                            med = Math.round(price * calcConfig.fb_ultra_spa.med / 100);
-                            acc = price - foodTotal - spa - med; // остаток — проживание
-                          } else if (pk.key === 'med') {
-                            foodTotal = Math.round(price * calcConfig.ultra_med.food / 100);
-                            b = Math.round(foodTotal * calcConfig.ultra_med.b / 100);
-                            l = Math.round(foodTotal * calcConfig.ultra_med.l / 100);
-                            d = foodTotal - b - l;
-                            spa = Math.round(price * calcConfig.ultra_med.spa / 100);
-                            med = Math.round(price * calcConfig.ultra_med.med / 100);
-                            acc = price - foodTotal - spa - med;
-                          } else if (pk.key === 'aqua_bb') {
-                            const base = getBaseFood();
-                            b = base.b;
-                            foodTotal = b;
-                            spa = Math.round(price * calcConfig.others.spa / 100);
-                            med = Math.round(price * calcConfig.others.med / 100);
-                            acc = price - b - spa - med;
-                          } else if (pk.key === 'aqua_hb') {
-                            const base = getBaseFood();
-                            b = base.b;
-                            d = base.d;
-                            foodTotal = b + d;
-                            spa = Math.round(price * calcConfig.others.spa / 100);
-                            med = Math.round(price * calcConfig.others.med / 100);
-                            acc = price - b - d - spa - med;
-                          }
-
-                          // Итого всегда = Цена (acc рассчитан как остаток)
-                          const sum = foodTotal + spa + med + acc;
+                          // Editable input cell helper
+                          const EditCell = ({ field, value, color }: { field: keyof typeof calcConfig; value: number; color: string }) => (
+                            <td className={`p-1 border border-slate-200 text-right text-[10px] ${color}`}>
+                              {value > 0 ? (
+                                <input
+                                  type="number"
+                                  value={value}
+                                  onChange={(e) => setCalcConfig(prev => ({ ...prev, [field]: parseInt(e.target.value) || 0 }))}
+                                  className="w-16 text-right bg-transparent border-b border-dashed border-current outline-none font-medium"
+                                />
+                              ) : <span className="text-slate-300">—</span>}
+                            </td>
+                          );
 
                           return (
                             <tr key={pk.key} className="hover:bg-slate-50 transition-colors">
                               <td className="p-3 border border-slate-200 font-bold">{pk.label}</td>
                               <td className="p-3 border border-slate-200 text-right font-mono font-black bg-slate-50">{price.toLocaleString()}</td>
-                              {/* Питание: итого + расшифровка Б/О/У */}
+                              {/* Питание: итого */}
                               <td className="p-3 border border-slate-200 text-right font-bold text-amber-700">{foodTotal.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right text-[10px] text-slate-400">{b > 0 ? b.toLocaleString() : '—'}</td>
-                              <td className="p-3 border border-slate-200 text-right text-[10px] text-slate-400">{l > 0 ? l.toLocaleString() : '—'}</td>
-                              <td className="p-3 border border-slate-200 text-right text-[10px] text-slate-400">{d > 0 ? d.toLocaleString() : '—'}</td>
-                              <td className="p-3 border border-slate-200 text-right font-bold text-cyan-700">{spa.toLocaleString()}</td>
-                              <td className="p-3 border border-slate-200 text-right font-bold text-purple-700">{med.toLocaleString()}</td>
+                              {/* Завтрак */}
+                              <EditCell field="b" value={b} color="text-amber-600" />
+                              {/* Обед */}
+                              <EditCell field="l" value={l} color="text-amber-600" />
+                              {/* Ужин */}
+                              <EditCell field="d" value={d} color="text-amber-600" />
+                              {/* Доп.питание */}
+                              <EditCell field="extra" value={extra} color="text-amber-500" />
+                              {/* СПА */}
+                              <td className="p-3 border border-slate-200 text-right font-bold text-cyan-700">
+                                {spa > 0 ? (
+                                  <input
+                                    type="number"
+                                    value={spa}
+                                    onChange={(e) => setCalcConfig(prev => ({ ...prev, spa: parseInt(e.target.value) || 0 }))}
+                                    className="w-16 text-right bg-transparent border-b border-dashed border-cyan-400 outline-none font-bold"
+                                  />
+                                ) : <span className="text-slate-300">—</span>}
+                              </td>
+                              {/* Медицина */}
+                              <td className="p-3 border border-slate-200 text-right font-bold text-purple-700">
+                                {med > 0 ? (
+                                  <input
+                                    type="number"
+                                    value={med}
+                                    onChange={(e) => setCalcConfig(prev => ({ ...prev, med: parseInt(e.target.value) || 0 }))}
+                                    className="w-16 text-right bg-transparent border-b border-dashed border-purple-400 outline-none font-bold"
+                                  />
+                                ) : <span className="text-slate-300">—</span>}
+                              </td>
                               <td className="p-3 border border-slate-200 text-right font-bold text-indigo-600">{acc.toLocaleString()}</td>
-                              <td className={`p-3 border border-slate-200 text-right font-black text-lg ${sum !== price ? 'text-red-500' : 'text-emerald-600'}`}>{sum.toLocaleString()}</td>
+                              <td className="p-3 border border-slate-200 text-right font-black text-lg text-emerald-600">{sum.toLocaleString()}</td>
                             </tr>
                           );
                         })}
@@ -5597,14 +5544,13 @@ export default function App() {
                     <p className="font-bold text-slate-700 mb-2 uppercase tracking-wider">Методология расчёта</p>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p><span className="font-bold text-amber-700">Питание</span> = % от цены (FB/SPA/Ultra: {calcConfig.fb_ultra_spa.food}%, МЕД: {calcConfig.ultra_med.food}%)</p>
-                        <p className="mt-1 opacity-80">Завтрак / Обед / Ужин — доля внутри питания ({calcConfig.fb_ultra_spa.b}/{calcConfig.fb_ultra_spa.l}/{calcConfig.fb_ultra_spa.d}%)</p>
-                        <p className="mt-1">Для BB/HB — питание рассчитывается от базовой цены Ultra</p>
+                        <p><span className="font-bold text-amber-700">Питание</span>: BB = завтрак ({calcConfig.b}₽) · HB = завтрак+ужин ({calcConfig.b+calcConfig.d}₽) · FB = Б+О+У ({calcConfig.b+calcConfig.l+calcConfig.d}₽)</p>
+                        <p className="mt-1 opacity-80">Ультра / Ультра+СПА / МЕД = Б+О+У+доп ({calcConfig.b+calcConfig.l+calcConfig.d+calcConfig.extra}₽)</p>
                       </div>
                       <div>
-                        <p><span className="font-bold text-cyan-700">SPA</span> = {calcConfig.fb_ultra_spa.spa}% от цены (FB/Ultra/SPA) · {calcConfig.others.spa}% (BB/HB)</p>
-                        <p className="mt-1"><span className="font-bold text-purple-700">Медицина</span> = {calcConfig.fb_ultra_spa.med}% (FB/Ultra) · {calcConfig.ultra_med.med}% (МЕД) · {calcConfig.others.med}% (BB/HB)</p>
-                        <p className="mt-1"><span className="font-bold text-indigo-700">Проживание</span> = Цена − Питание − SPA − Медицина</p>
+                        <p><span className="font-bold text-cyan-700">СПА</span> = {calcConfig.spa}₽ (Ультра, Ультра+СПА, Ультра МЕД)</p>
+                        <p className="mt-1"><span className="font-bold text-purple-700">Медицина</span> = {calcConfig.med}₽ (только Ультра МЕД)</p>
+                        <p className="mt-1"><span className="font-bold text-indigo-700">Проживание</span> = Цена − Питание − СПА − Медицина</p>
                       </div>
                     </div>
                   </div>
