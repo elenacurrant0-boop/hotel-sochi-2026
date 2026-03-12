@@ -5433,6 +5433,47 @@ export default function App() {
                     ))}
                   </div>
                   <p className="text-[10px] text-slate-400 mt-3">СПА включается в: Ультра, Ультра+СПА, Ультра МЕД · Медицина — только Ультра МЕД · BB/HB/FB — только питание</p>
+
+                  {/* Promo overrides */}
+                  <div className="mt-5 pt-4 border-t border-slate-200">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-rose-500 mb-3">Промо-тарифы — свои значения компонентов</p>
+                    <div className="space-y-3">
+                      {(['promo', 'promo2', 'promo3'] as const).map(pk => {
+                        const pkLabel = PACKAGES.find(p => p.key === pk)?.short ?? pk;
+                        const ov = pkgCalcOverrides[pk] || {};
+                        const fields = [
+                          { key: 'b' as const,     label: 'Завтрак',      color: 'text-amber-700' },
+                          { key: 'l' as const,     label: 'Обед',         color: 'text-amber-700' },
+                          { key: 'd' as const,     label: 'Ужин',         color: 'text-amber-700' },
+                          { key: 'extra' as const, label: 'Доп.питание',  color: 'text-amber-500' },
+                          { key: 'spa' as const,   label: 'СПА',          color: 'text-cyan-700'  },
+                          { key: 'med' as const,   label: 'Медицина',     color: 'text-purple-700'},
+                        ];
+                        return (
+                          <div key={pk} className="flex flex-wrap items-center gap-3">
+                            <span className="text-xs font-black w-14 text-rose-600 shrink-0">{pkLabel}</span>
+                            {fields.map(({ key, label, color }) => (
+                              <div key={key} className="flex flex-col gap-0.5">
+                                <label className={`text-[9px] uppercase font-bold ${color}`}>{label}</label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    value={ov[key] ?? calcConfig[key]}
+                                    onChange={(e) => setPkgCalcOverrides(prev => ({
+                                      ...prev,
+                                      [pk]: { ...(prev[pk] || {}), [key]: parseInt(e.target.value) || 0 }
+                                    }))}
+                                    className="w-20 border rounded p-1.5 font-semibold text-sm pr-5"
+                                  />
+                                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">₽</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Calculation Table Section */}
@@ -5492,22 +5533,12 @@ export default function App() {
                           const acc = price - foodTotal - spa - med;
                           const sum = price;
 
-                          // Editable input cell helper — writes to per-package override
-                          const EditCell = ({ field, value, color }: { field: keyof typeof calcConfig; value: number; color: string }) => (
-                            <td className={`p-1 border border-slate-200 text-right text-[10px] ${color}`}>
-                              {value > 0 ? (
-                                <input
-                                  type="number"
-                                  value={value}
-                                  onChange={(e) => setPkgCalcOverrides(prev => ({
-                                    ...prev,
-                                    [pk.key]: { ...(prev[pk.key] || {}), [field]: parseInt(e.target.value) || 0 }
-                                  }))}
-                                  className="w-16 text-right bg-transparent border-b border-dashed border-current outline-none font-medium"
-                                />
-                              ) : <span className="text-slate-300">—</span>}
-                            </td>
-                          );
+                          const makeBlurHandler = (field: keyof typeof calcConfig) =>
+                            (e: React.FocusEvent<HTMLInputElement>) =>
+                              setPkgCalcOverrides(prev => ({
+                                ...prev,
+                                [pk.key]: { ...(prev[pk.key] || {}), [field]: parseInt(e.target.value) || 0 }
+                              }));
 
                           return (
                             <tr key={pk.key} className="hover:bg-slate-50 transition-colors">
@@ -5516,33 +5547,33 @@ export default function App() {
                               {/* Питание: итого */}
                               <td className="p-3 border border-slate-200 text-right font-bold text-amber-700">{foodTotal.toLocaleString()}</td>
                               {/* Завтрак */}
-                              <EditCell field="b" value={b} color="text-amber-600" />
+                              <td className="p-2 border border-slate-200 text-right text-sm text-amber-600">
+                                {b > 0 ? <input key={`${pk.key}-b`} type="number" defaultValue={b} onBlur={makeBlurHandler('b')} className="w-20 text-right bg-transparent border-b border-dashed border-amber-400 outline-none font-semibold text-sm" /> : <span className="text-slate-300">—</span>}
+                              </td>
                               {/* Обед */}
-                              <EditCell field="l" value={l} color="text-amber-600" />
+                              <td className="p-2 border border-slate-200 text-right text-sm text-amber-600">
+                                {l > 0 ? <input key={`${pk.key}-l`} type="number" defaultValue={l} onBlur={makeBlurHandler('l')} className="w-20 text-right bg-transparent border-b border-dashed border-amber-400 outline-none font-semibold text-sm" /> : <span className="text-slate-300">—</span>}
+                              </td>
                               {/* Ужин */}
-                              <EditCell field="d" value={d} color="text-amber-600" />
+                              <td className="p-2 border border-slate-200 text-right text-sm text-amber-600">
+                                {d > 0 ? <input key={`${pk.key}-d`} type="number" defaultValue={d} onBlur={makeBlurHandler('d')} className="w-20 text-right bg-transparent border-b border-dashed border-amber-400 outline-none font-semibold text-sm" /> : <span className="text-slate-300">—</span>}
+                              </td>
                               {/* Доп.питание */}
-                              <EditCell field="extra" value={extra} color="text-amber-500" />
+                              <td className="p-2 border border-slate-200 text-right text-sm text-amber-500">
+                                {extra > 0 ? <input key={`${pk.key}-extra`} type="number" defaultValue={extra} onBlur={makeBlurHandler('extra')} className="w-20 text-right bg-transparent border-b border-dashed border-amber-300 outline-none font-semibold text-sm" /> : <span className="text-slate-300">—</span>}
+                              </td>
                               {/* СПА */}
                               <td className="p-3 border border-slate-200 text-right font-bold text-cyan-700">
                                 {spa > 0 ? (
-                                  <input
-                                    type="number"
-                                    value={spa}
-                                    onChange={(e) => setPkgCalcOverrides(prev => ({ ...prev, [pk.key]: { ...(prev[pk.key] || {}), spa: parseInt(e.target.value) || 0 } }))}
-                                    className="w-16 text-right bg-transparent border-b border-dashed border-cyan-400 outline-none font-bold"
-                                  />
+                                  <input key={`${pk.key}-spa`} type="number" defaultValue={spa} onBlur={(e) => setPkgCalcOverrides(prev => ({ ...prev, [pk.key]: { ...(prev[pk.key] || {}), spa: parseInt(e.target.value) || 0 } }))}
+                                    className="w-20 text-right bg-transparent border-b border-dashed border-cyan-400 outline-none font-bold text-sm" />
                                 ) : <span className="text-slate-300">—</span>}
                               </td>
                               {/* Медицина */}
                               <td className="p-3 border border-slate-200 text-right font-bold text-purple-700">
                                 {med > 0 ? (
-                                  <input
-                                    type="number"
-                                    value={med}
-                                    onChange={(e) => setPkgCalcOverrides(prev => ({ ...prev, [pk.key]: { ...(prev[pk.key] || {}), med: parseInt(e.target.value) || 0 } }))}
-                                    className="w-16 text-right bg-transparent border-b border-dashed border-purple-400 outline-none font-bold"
-                                  />
+                                  <input key={`${pk.key}-med`} type="number" defaultValue={med} onBlur={(e) => setPkgCalcOverrides(prev => ({ ...prev, [pk.key]: { ...(prev[pk.key] || {}), med: parseInt(e.target.value) || 0 } }))}
+                                    className="w-20 text-right bg-transparent border-b border-dashed border-purple-400 outline-none font-bold text-sm" />
                                 ) : <span className="text-slate-300">—</span>}
                               </td>
                               <td className="p-3 border border-slate-200 text-right font-bold text-indigo-600">{acc.toLocaleString()}</td>
