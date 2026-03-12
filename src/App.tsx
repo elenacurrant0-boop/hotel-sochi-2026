@@ -469,8 +469,22 @@ export default function App() {
     return { b: 413, l: 578, d: 659, extra: 0, spa: 165, med: 1025 };
   });
 
+  // Per-package overrides: only stores fields that differ from global calcConfig
+  const [pkgCalcOverrides, setPkgCalcOverrides] = useState<Record<string, Partial<typeof calcConfig>>>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.pkgCalcOverrides) return parsed.pkgCalcOverrides;
+      }
+    } catch(e) {}
+    return {};
+  });
+
   const getPkgComponents = (pkKey: string) => {
-    const { b, l, d, extra, spa, med } = calcConfig;
+    const overrides = pkgCalcOverrides[pkKey] || {};
+    const merged = { ...calcConfig, ...overrides };
+    const { b, l, d, extra, spa, med } = merged;
     const getForBase = (key: string) => {
       switch (key) {
         case 'aqua_bb': return { food: b,               b, l: 0, d: 0,  extra: 0, spa: 0, med: 0 };
@@ -637,7 +651,7 @@ export default function App() {
   // --- Data Sync Logic ---
   const getAllState = () => ({
     rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData, segmentCoeffs,
-    costConfig, calcConfig, medAddonConfig, roomMonthlyData,
+    costConfig, calcConfig, pkgCalcOverrides, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff,
     promoConfigs, packageLabels,
   });
@@ -682,6 +696,7 @@ export default function App() {
       if ('b' in data.calcConfig) setCalcConfig(data.calcConfig);
       // old format with fb_ultra_spa — skip, keep defaults
     }
+    if (data.pkgCalcOverrides) setPkgCalcOverrides(data.pkgCalcOverrides);
     if (data.medAddonConfig) setMedAddonConfig(data.medAddonConfig);
     if (data.roomMonthlyData) setRoomMonthlyData(data.roomMonthlyData);
     if (data.globalPriceAdj !== undefined) setGlobalPriceAdj(data.globalPriceAdj);
@@ -1063,7 +1078,7 @@ export default function App() {
       totalInternalMedRev, totalFullMedRev, totalRoomRev, totalBudget,
       totalADR, totalRevPAR, totalTRevPAR
     };
-  }, [rooms, pkgMixByMonth, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff, promoConfigs]);
+  }, [rooms, pkgMixByMonth, prices, seasonData, roomMonthlyData, segmentData, segmentCoeffs, costConfig, calcConfig, pkgCalcOverrides, medAddonConfig, seasons, expenseModel, monthlyGuestCoeff, promoConfigs]);
 
   // Annual average package mix (for display in reports/tables)
   const avgPkgMix = Object.fromEntries(PACKAGES.map(pk => [
@@ -5481,14 +5496,17 @@ export default function App() {
                           const acc = price - foodTotal - spa - med;
                           const sum = price;
 
-                          // Editable input cell helper
+                          // Editable input cell helper — writes to per-package override
                           const EditCell = ({ field, value, color }: { field: keyof typeof calcConfig; value: number; color: string }) => (
                             <td className={`p-1 border border-slate-200 text-right text-[10px] ${color}`}>
                               {value > 0 ? (
                                 <input
                                   type="number"
                                   value={value}
-                                  onChange={(e) => setCalcConfig(prev => ({ ...prev, [field]: parseInt(e.target.value) || 0 }))}
+                                  onChange={(e) => setPkgCalcOverrides(prev => ({
+                                    ...prev,
+                                    [pk.key]: { ...(prev[pk.key] || {}), [field]: parseInt(e.target.value) || 0 }
+                                  }))}
                                   className="w-16 text-right bg-transparent border-b border-dashed border-current outline-none font-medium"
                                 />
                               ) : <span className="text-slate-300">—</span>}
@@ -5515,7 +5533,7 @@ export default function App() {
                                   <input
                                     type="number"
                                     value={spa}
-                                    onChange={(e) => setCalcConfig(prev => ({ ...prev, spa: parseInt(e.target.value) || 0 }))}
+                                    onChange={(e) => setPkgCalcOverrides(prev => ({ ...prev, [pk.key]: { ...(prev[pk.key] || {}), spa: parseInt(e.target.value) || 0 } }))}
                                     className="w-16 text-right bg-transparent border-b border-dashed border-cyan-400 outline-none font-bold"
                                   />
                                 ) : <span className="text-slate-300">—</span>}
@@ -5526,7 +5544,7 @@ export default function App() {
                                   <input
                                     type="number"
                                     value={med}
-                                    onChange={(e) => setCalcConfig(prev => ({ ...prev, med: parseInt(e.target.value) || 0 }))}
+                                    onChange={(e) => setPkgCalcOverrides(prev => ({ ...prev, [pk.key]: { ...(prev[pk.key] || {}), med: parseInt(e.target.value) || 0 } }))}
                                     className="w-16 text-right bg-transparent border-b border-dashed border-purple-400 outline-none font-bold"
                                   />
                                 ) : <span className="text-slate-300">—</span>}
