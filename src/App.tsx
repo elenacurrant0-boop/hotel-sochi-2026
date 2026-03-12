@@ -427,7 +427,9 @@ export default function App() {
     ultra: { share: 0, rev: 0 },
     spa: { share: 0, rev: 0 },
     med: { share: 0, rev: 0 },
-    promo: { share: 0, rev: 0 }
+    promo: { share: 0, rev: 0 },
+    promo2: { share: 0, rev: 0 },
+    promo3: { share: 0, rev: 0 }
   });
 
   const [seasonalProducts, setSeasonalProducts] = useState<SeasonalProduct[]>(() => {
