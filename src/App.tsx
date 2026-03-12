@@ -98,7 +98,7 @@ const PRICE_PERIODS = [
 
 const MONTHS = [
   { name: "Январь",   days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31, displayDates: "01.01–31.01" }] },
-  { name: "Февраль",  days: 28, distribution: [{ pIdx: 9, sKey: 'low',      days: 11, displayDates: "01.02–11.02" }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 9 }] },
+  { name: "Февраль",  days: 28, distribution: [{ pIdx: 0, sKey: 'low',      days: 11, displayDates: "01.02–11.02" }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 9 }] },
   { name: "Март",     days: 31, distribution: [{ pIdx: 2, sKey: 'low',      days: 5  }, { pIdx: 1, sKey: 'low', days: 4 }, { pIdx: 2, sKey: 'low', days: 18 }, { pIdx: 1, sKey: 'low', days: 4 }] },
   { name: "Апрель",   days: 30, distribution: [{ pIdx: 1, sKey: 'low',      days: 30 }] },
   { name: "Май",      days: 31, distribution: [{ pIdx: 3, sKey: 'holidays', days: 2  }, { pIdx: 4, sKey: 'mid', days: 5 }, { pIdx: 3, sKey: 'holidays', days: 3 }, { pIdx: 4, sKey: 'mid', days: 21 }] },
@@ -871,10 +871,6 @@ export default function App() {
       })();
 
       m.distribution.forEach(dist => {
-        const sKey = dist.sKey;
-        const s = seasons.find(s => s.key === sKey)!;
-        const data = seasonData[sKey];
-
         // Medical Addon calculation (Algorithm: max 5% conversion, 500 rub check)
         const convRate = medAddonConfig.maxConversion;
         
@@ -913,9 +909,9 @@ export default function App() {
             const basePrice = prices[rt.key][pk.key][dist.pIdx];
             const price = basePrice * (1 + globalPriceAdj / 100);
 
-            const revBase = rn * mix * data.guests * price;          // базовая цена (для затрат)
-            const rev = revBase * segWeightedCoeff;                   // цена с поправкой на сегменты
-            const revFact = rnFact * mix * data.guests * price * segWeightedCoeff;
+            const revBase = rn * mix * monthlyGuestCoeff[mIdx] * price;          // базовая цена (для затрат)
+            const rev = revBase * segWeightedCoeff;                             // цена с поправкой на сегменты
+            const revFact = rnFact * mix * monthlyGuestCoeff[mIdx] * price * segWeightedCoeff;
 
             mRevBase += revBase;
             mRev += rev;
@@ -5733,9 +5729,8 @@ export default function App() {
                           PACKAGES.forEach(pk => { pkgAgg[pk.key] = { rn: 0, rev: 0, priceWeighted: 0, guestWeighted: 0 }; });
 
                           mo.distribution.forEach(dist => {
-                            const sv = seasons.find(s => s.key === dist.sKey)!;
                             const periodRN = roomCount * dist.days * (occPlan / 100);
-                            const guests = seasonData[sv.key].guests;
+                            const guests = monthlyGuestCoeff[mIdx];
 
                             const rawMixes: Record<string, number> = {};
                             let totalRaw = 0;
