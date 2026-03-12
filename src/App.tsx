@@ -635,6 +635,11 @@ export default function App() {
     if (data.prices) {
       const migratedPrices = data.prices;
       ROOM_TYPES.forEach(rt => {
+        if (!migratedPrices[rt.key]) migratedPrices[rt.key] = {};
+        // Add missing package keys (e.g. promo2, promo3 added later)
+        PACKAGES.forEach(pk => {
+          if (!migratedPrices[rt.key][pk.key]) migratedPrices[rt.key][pk.key] = new Array(10).fill(0);
+        });
         PRICE_PERIODS.forEach(pp => {
           if (!pp.isLow) {
             const promoVal = migratedPrices[rt.key]?.promo?.[pp.pIdx];
