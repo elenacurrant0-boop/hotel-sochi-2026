@@ -58,8 +58,22 @@ const PACKAGES = [
   { key: 'ultra', label: 'Ультра (FB+Аква+Аним)', short: 'Ultra', color: 'text-indigo-600', bg: 'bg-indigo-50', alos: 7 },
   { key: 'spa', label: 'Ультра + СПА', short: 'SPA', color: 'text-purple-600', bg: 'bg-purple-50', alos: 7 },
   { key: 'med', label: 'Ультра с лечением', short: 'Med', color: 'text-orange-600', bg: 'bg-orange-50', alos: 12 },
-  { key: 'promo', label: 'Акции, ПРОМО', short: 'ПРОМО', color: 'text-red-600', bg: 'bg-red-50', maxShare: 5, restricted: true, alos: 5 },
+  { key: 'promo',  label: 'Акции, ПРОМО', short: 'ПРОМО', color: 'text-red-600',  bg: 'bg-red-50',  maxShare: 5, restricted: true, alos: 5 },
+  { key: 'promo2', label: 'ПРОМО 2',       short: 'ПР-2',  color: 'text-pink-600', bg: 'bg-pink-50', maxShare: 5, restricted: true, alos: 5 },
+  { key: 'promo3', label: 'ПРОМО 3',       short: 'ПР-3',  color: 'text-rose-600', bg: 'bg-rose-50', maxShare: 5, restricted: true, alos: 5 },
 ];
+
+interface PromoConfig {
+  basePkg: string;
+  discount: number;
+  periods: { [pIdx: number]: { name: string; mode: 'auto' | 'manual' } };
+}
+const DEFAULT_PROMO_CONFIGS: Record<string, PromoConfig> = {
+  promo:  { basePkg: 'ultra',    discount: 10, periods: {} },
+  promo2: { basePkg: 'ultra',    discount: 15, periods: {} },
+  promo3: { basePkg: 'aqua_bb',  discount: 10, periods: {} },
+};
+const PROMO_KEYS = ['promo', 'promo2', 'promo3'];
 
 const SEASONS = [
   { key: 'low',      name: 'Низкий',    dates: 'ноябрь–апрель',        defaultOcc: 40, defaultGuests: 2.2, isLow: true },
@@ -351,7 +365,7 @@ export default function App() {
     setIsSandbox(false);
   };
   const [rooms, setRooms] = useState({ standard: 227, comfort: 240, lux: 0 });
-  const DEFAULT_PKG_MIX = { aqua_bb: 2, aqua_hb: 3, aqua_fb: 5, ultra: 40, spa: 20, med: 25, promo: 5 };
+  const DEFAULT_PKG_MIX = { aqua_bb: 2, aqua_hb: 3, aqua_fb: 5, ultra: 40, spa: 20, med: 25, promo: 5, promo2: 0, promo3: 0 };
   const [pkgMixByMonth, setPkgMixByMonth] = useState<Array<typeof DEFAULT_PKG_MIX>>(MONTHS.map(() => ({ ...DEFAULT_PKG_MIX })));
   const [prices, setPrices] = useState(() => {
     try {
@@ -362,7 +376,17 @@ export default function App() {
           const firstRt = Object.values(parsed.prices)[0] as any;
           const firstPk = firstRt ? Object.values(firstRt)[0] : null;
           const isOldFormat = firstPk && !Array.isArray(firstPk);
-          if (!isOldFormat) return parsed.prices;
+          if (!isOldFormat) {
+            // Migrate: add missing package keys (e.g. promo2, promo3)
+            const loaded = parsed.prices as any;
+            ROOM_TYPES.forEach(rt => {
+              if (!loaded[rt.key]) loaded[rt.key] = {};
+              PACKAGES.forEach(pk => {
+                if (!loaded[rt.key][pk.key]) loaded[rt.key][pk.key] = new Array(10).fill(0);
+              });
+            });
+            return loaded;
+          }
         }
       }
     } catch (e) {}
@@ -484,31 +508,60 @@ export default function App() {
 
   const [detailMonth, setDetailMonth] = useState(2); // default: Март
 
-  const [promoBasePkg, setPromoBasePkg] = useState('ultra');
-  const [promoDiscount, setPromoDiscount] = useState(10);
-  // Per-period PROMO settings: custom name and auto/manual mode
-  const [promoPeriodSettings, setPromoPeriodSettings] = useState<{
-    [pIdx: number]: { name: string; mode: 'auto' | 'manual' }
-  }>(() => {
+  // Unified promo configs for all 3 promo packages
+  const [promoConfigs, setPromoConfigs] = useState<Record<string, PromoConfig>>(() => {
     try {
       const saved = localStorage.getItem('sochi_model_data');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.promoPeriodSettings) return parsed.promoPeriodSettings;
+        if (parsed.promoConfigs) return { ...DEFAULT_PROMO_CONFIGS, ...parsed.promoConfigs };
+        // Migrate from old separate fields
+        if (parsed.promoPeriodSettings || parsed.promoBasePkg || parsed.promoDiscount !== undefined) {
+          return {
+            ...DEFAULT_PROMO_CONFIGS,
+            promo: {
+              basePkg: parsed.promoBasePkg ?? 'ultra',
+              discount: parsed.promoDiscount ?? 10,
+              periods: parsed.promoPeriodSettings ?? {},
+            },
+          };
+        }
+      }
+    } catch (e) {}
+    return { ...DEFAULT_PROMO_CONFIGS };
+  });
+  const getPromoSetting = (pkgKey: string, pIdx: number) => ({
+    name: promoConfigs[pkgKey]?.periods[pIdx]?.name || '',
+    mode: (promoConfigs[pkgKey]?.periods[pIdx]?.mode || 'auto') as 'auto' | 'manual',
+  });
+  const updatePromoSetting = (pkgKey: string, pIdx: number, field: 'name' | 'mode', value: string) => {
+    setPromoConfigs(prev => ({
+      ...prev,
+      [pkgKey]: {
+        ...prev[pkgKey],
+        periods: {
+          ...prev[pkgKey]?.periods,
+          [pIdx]: { name: prev[pkgKey]?.periods[pIdx]?.name || '', mode: prev[pkgKey]?.periods[pIdx]?.mode || 'auto', [field]: value },
+        },
+      },
+    }));
+  };
+  const updatePromoConfig = (pkgKey: string, field: 'basePkg' | 'discount', value: any) => {
+    setPromoConfigs(prev => ({ ...prev, [pkgKey]: { ...prev[pkgKey], [field]: value } }));
+  };
+
+  // Custom short labels for package headers in price list
+  const [packageLabels, setPackageLabels] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.packageLabels) return parsed.packageLabels;
       }
     } catch (e) {}
     return {};
   });
-  const getPromoSetting = (pIdx: number) => ({
-    name: promoPeriodSettings[pIdx]?.name || '',
-    mode: (promoPeriodSettings[pIdx]?.mode || 'auto') as 'auto' | 'manual',
-  });
-  const updatePromoSetting = (pIdx: number, field: 'name' | 'mode', value: string) => {
-    setPromoPeriodSettings(prev => ({
-      ...prev,
-      [pIdx]: { name: prev[pIdx]?.name || '', mode: prev[pIdx]?.mode || 'auto', [field]: value },
-    }));
-  };
+  const getPkgShort = (key: string) => packageLabels[key] || PACKAGES.find(p => p.key === key)?.short || key;
 
   const [medAddonConfig, setMedAddonConfig] = useState({
     // Поток 1: Med-пакет (уже приехали на лечение, покупают доп. процедуры)
@@ -542,7 +595,7 @@ export default function App() {
   // --- Blank state for demo users ---
   const getBlankState = () => ({
     rooms: { standard: 0, comfort: 0, lux: 0 },
-    pkgMixByMonth: MONTHS.map(() => ({ aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0 })),
+    pkgMixByMonth: MONTHS.map(() => ({ aqua_bb: 0, aqua_hb: 0, aqua_fb: 0, ultra: 0, spa: 0, med: 0, promo: 0, promo2: 0, promo3: 0 })),
     prices: Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, Object.fromEntries(PACKAGES.map(pk => [pk.key, new Array(10).fill(0)]))])),
     roomMonthlyData: MONTHS.map(() => Object.fromEntries(ROOM_TYPES.map(rt => [rt.key, { plan: 0, fact: 0 }]))),
     monthlyFact: MONTHS.map(() => ({ occFact: 0, rnFact: 0, revFact: 0 })),
@@ -564,7 +617,7 @@ export default function App() {
     rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData, segmentCoeffs,
     costConfig, calcConfig, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff,
-    promoBasePkg, promoDiscount, promoPeriodSettings,
+    promoConfigs, packageLabels,
   });
 
   const setAllState = (data: any) => {
@@ -574,7 +627,7 @@ export default function App() {
     if (data.pkgMix && !data.pkgMixByMonth) {
       data.pkgMixByMonth = MONTHS.map(() => ({ ...data.pkgMix }));
     }
-    if (data.pkgMixByMonth) setPkgMixByMonth(data.pkgMixByMonth);
+    if (data.pkgMixByMonth) setPkgMixByMonth(data.pkgMixByMonth.map((mix: any) => ({ promo2: 0, promo3: 0, ...mix })));
     // Migration: recalculate PROMO prices where they are 0 for non-low periods
     // (old system set PROMO=0 for non-low seasons; new system allows PROMO everywhere)
     if (data.prices) {
@@ -605,9 +658,16 @@ export default function App() {
     if (data.expenseModel) setExpenseModel(data.expenseModel);
     if (data.monthlyFact) setMonthlyFact(data.monthlyFact);
     if (data.monthlyGuestCoeff) setMonthlyGuestCoeff(data.monthlyGuestCoeff);
-    if (data.promoBasePkg) setPromoBasePkg(data.promoBasePkg);
-    if (data.promoDiscount !== undefined) setPromoDiscount(data.promoDiscount);
-    if (data.promoPeriodSettings) setPromoPeriodSettings(data.promoPeriodSettings);
+    if (data.promoConfigs) {
+      setPromoConfigs(prev => ({ ...prev, ...data.promoConfigs }));
+    } else if (data.promoBasePkg || data.promoPeriodSettings || data.promoDiscount !== undefined) {
+      // Migrate from old format
+      setPromoConfigs(prev => ({
+        ...prev,
+        promo: { basePkg: data.promoBasePkg ?? prev.promo?.basePkg ?? 'ultra', discount: data.promoDiscount ?? prev.promo?.discount ?? 10, periods: data.promoPeriodSettings ?? prev.promo?.periods ?? {} },
+      }));
+    }
+    if (data.packageLabels) setPackageLabels(data.packageLabels);
   };
 
   // Load shared state on mount
@@ -1009,14 +1069,18 @@ export default function App() {
     setPrices((prev: any) => {
       const updated = { ...prev };
       ROOM_TYPES.forEach(rt => {
-        updated[rt.key].promo = PRICE_PERIODS.map((_pp, i) => {
-          if ((promoPeriodSettings[i]?.mode || 'auto') === 'manual') return prev[rt.key].promo[i];
-          return Math.round(updated[rt.key][promoBasePkg][i] * (1 - promoDiscount / 100));
+        PROMO_KEYS.forEach(pkKey => {
+          if (!updated[rt.key]?.[pkKey]) return;
+          const cfg = promoConfigs[pkKey] ?? DEFAULT_PROMO_CONFIGS[pkKey];
+          updated[rt.key][pkKey] = PRICE_PERIODS.map((_pp, i) => {
+            if ((cfg.periods[i]?.mode || 'auto') === 'manual') return prev[rt.key]?.[pkKey]?.[i] ?? 0;
+            return Math.round((updated[rt.key]?.[cfg.basePkg]?.[i] ?? 0) * (1 - cfg.discount / 100));
+          });
         });
       });
       return updated;
     });
-  }, [promoBasePkg, promoDiscount, promoPeriodSettings]);
+  }, [promoConfigs]);
 
   const handleSeasonPeriodChange = (sKey: string, field: string, val: string) => {
     setSeasons(prev => prev.map(s => s.key === sKey ? { ...s, [field]: val } : s));
@@ -5087,23 +5151,23 @@ export default function App() {
                             <th className="w-48">Категория</th>
                             {PACKAGES.map(pk => (
                               <th key={pk.key} className="text-center">
-                                {pk.key === 'promo' ? (
+                                {PROMO_KEYS.includes(pk.key) ? (
                                   <div className="flex flex-col items-center gap-1">
                                     <input
                                       type="text"
-                                      value={getPromoSetting(pp.pIdx).name}
-                                      onChange={(e) => updatePromoSetting(pp.pIdx, 'name', e.target.value)}
-                                      placeholder="ПРОМО"
-                                      className="text-center font-bold text-sm bg-transparent border-b border-dashed border-red-300 focus:border-red-500 outline-none w-24 text-red-600"
+                                      value={getPromoSetting(pk.key, pp.pIdx).name}
+                                      onChange={(e) => updatePromoSetting(pk.key, pp.pIdx, 'name', e.target.value)}
+                                      placeholder={getPkgShort(pk.key)}
+                                      className={`text-center font-bold text-sm bg-transparent border-b border-dashed focus:outline-none w-24 ${pk.color} border-current`}
                                     />
                                     <button
-                                      onClick={() => updatePromoSetting(pp.pIdx, 'mode', getPromoSetting(pp.pIdx).mode === 'auto' ? 'manual' : 'auto')}
-                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-colors ${getPromoSetting(pp.pIdx).mode === 'auto' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
+                                      onClick={() => updatePromoSetting(pk.key, pp.pIdx, 'mode', getPromoSetting(pk.key, pp.pIdx).mode === 'auto' ? 'manual' : 'auto')}
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded transition-colors ${getPromoSetting(pk.key, pp.pIdx).mode === 'auto' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-orange-100 text-orange-600 hover:bg-orange-200'}`}
                                     >
-                                      {getPromoSetting(pp.pIdx).mode === 'auto' ? `авто −${promoDiscount}%` : 'ручная цена'}
+                                      {getPromoSetting(pk.key, pp.pIdx).mode === 'auto' ? `авто −${promoConfigs[pk.key]?.discount ?? 10}%` : 'ручная цена'}
                                     </button>
                                   </div>
-                                ) : pk.short}
+                                ) : getPkgShort(pk.key)}
                               </th>
                             ))}
                           </tr>
@@ -5119,8 +5183,8 @@ export default function App() {
                                     value={prices[rt.key][pk.key][pp.pIdx] || ''}
                                     placeholder="—"
                                     onChange={(e) => handlePriceChange(rt.key, pk.key, pp.pIdx, e.target.value)}
-                                    disabled={pk.key === 'promo' && getPromoSetting(pp.pIdx).mode === 'auto'}
-                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][pp.pIdx] === 0 ? 'text-slate-300' : pk.color} ${pk.key === 'promo' && getPromoSetting(pp.pIdx).mode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={PROMO_KEYS.includes(pk.key) && getPromoSetting(pk.key, pp.pIdx).mode === 'auto'}
+                                    className={`w-20 text-center font-mono font-bold py-1 rounded border-b-2 border-transparent focus:border-indigo-50 focus:bg-indigo-50 transition-all outline-none ${prices[rt.key][pk.key][pp.pIdx] === 0 ? 'text-slate-300' : pk.color} ${PROMO_KEYS.includes(pk.key) && getPromoSetting(pk.key, pp.pIdx).mode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   />
                                 </td>
                               ))}
@@ -5220,68 +5284,70 @@ export default function App() {
                   <p className="text-[10px] text-slate-400 mt-2">* Среднее считается как округлённое среднее по каждому пакету. Если итог ≠ 100 — проверь, заполнены ли все месяцы.</p>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                  <h3 className="font-bold mb-4 flex items-center gap-2"><Sparkles size={18} className="text-indigo-500" /> Настройка ПРОМО тарифа</h3>
-                  <div className="space-y-6">
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Базовый тариф для расчета</label>
-                      <select 
-                        value={promoBasePkg} 
-                        onChange={(e) => setPromoBasePkg(e.target.value)}
-                        className="w-full border rounded-lg p-2 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        {PACKAGES.filter(p => p.key !== 'promo').map(p => (
-                          <option key={p.key} value={p.key}>{p.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Размер скидки (%)</label>
-                      <div className="flex items-center gap-4">
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="50" 
-                          step="1" 
-                          value={promoDiscount} 
-                          onChange={(e) => setPromoDiscount(parseInt(e.target.value))} 
-                          className="flex-1 accent-indigo-600"
-                        />
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" 
-                            value={promoDiscount} 
-                            onChange={(e) => setPromoDiscount(parseInt(e.target.value) || 0)} 
-                            className="w-16 text-right font-bold border rounded p-1" 
+                {/* Promo configs + package rename — one block per promo tariff */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 md:col-span-2">
+                  <h3 className="font-bold mb-4 flex items-center gap-2"><Sparkles size={18} className="text-indigo-500" /> Настройка ПРОМО тарифов и названий</h3>
+                  {/* Package label rename */}
+                  <div className="mb-6">
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Названия тарифов в прейскуранте</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {PACKAGES.map(pk => (
+                        <div key={pk.key} className="flex items-center gap-2 border rounded-lg px-3 py-1.5 bg-slate-50">
+                          <span className={`text-[10px] font-bold w-12 shrink-0 ${pk.color}`}>{pk.short}</span>
+                          <input
+                            type="text"
+                            value={packageLabels[pk.key] || ''}
+                            onChange={e => setPackageLabels(prev => ({ ...prev, [pk.key]: e.target.value }))}
+                            placeholder={pk.short}
+                            className="flex-1 text-sm bg-transparent outline-none border-b border-dashed border-slate-300 focus:border-indigo-400 min-w-0"
                           />
-                          <span className="text-sm font-bold text-slate-400">%</span>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                    <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                      <p className="text-xs text-indigo-700 leading-relaxed">
-                        <b>Авто-режим:</b> цена = <b>{100 - promoDiscount}%</b> от тарифа <b>{PACKAGES.find(p => p.key === promoBasePkg)?.label}</b>.
-                        В <b>ручном режиме</b> — вводишь цену напрямую в прейскуранте. Название тоже можно менять под каждый период (ФСС, Корпоратив и т.д.).
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Режим по периодам</label>
-                      <div className="space-y-1">
-                        {PRICE_PERIODS.map(pp => {
-                          const s = getPromoSetting(pp.pIdx);
-                          return (
-                            <div key={pp.pIdx} className="flex items-center gap-2 text-xs">
-                              <span className="text-slate-400 w-6 text-right">{pp.pIdx + 1}</span>
-                              <span className="text-slate-500 flex-1 truncate">{pp.dates}</span>
-                              <span className={`px-2 py-0.5 rounded font-bold ${s.mode === 'auto' ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
-                                {s.mode === 'auto' ? 'авто' : 'ручная'}
-                              </span>
-                              {s.name && <span className="text-red-500 font-semibold truncate max-w-[80px]">{s.name}</span>}
+                    <p className="text-[10px] text-slate-400 mt-1">Пустое поле — используется название по умолчанию.</p>
+                  </div>
+                  {/* Per-promo configs */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {PROMO_KEYS.map(pkKey => {
+                      const cfg = promoConfigs[pkKey] ?? DEFAULT_PROMO_CONFIGS[pkKey];
+                      const pk = PACKAGES.find(p => p.key === pkKey)!;
+                      return (
+                        <div key={pkKey} className={`p-4 rounded-xl border ${pk.bg} border-current/10 space-y-3`}>
+                          <p className={`font-bold text-sm ${pk.color}`}>{getPkgShort(pkKey)}</p>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Базовый тариф</label>
+                            <select value={cfg.basePkg} onChange={e => updatePromoConfig(pkKey, 'basePkg', e.target.value)} className="w-full border rounded p-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-400 bg-white">
+                              {PACKAGES.filter(p => !PROMO_KEYS.includes(p.key)).map(p => (
+                                <option key={p.key} value={p.key}>{getPkgShort(p.key) || p.short}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Скидка: {cfg.discount}%</label>
+                            <div className="flex items-center gap-2">
+                              <input type="range" min="0" max="50" step="1" value={cfg.discount} onChange={e => updatePromoConfig(pkKey, 'discount', parseInt(e.target.value))} className="flex-1 accent-indigo-600" />
+                              <input type="number" value={cfg.discount} onChange={e => updatePromoConfig(pkKey, 'discount', parseInt(e.target.value) || 0)} className="w-12 text-right font-bold border rounded p-1 text-sm" />
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Режим по периодам</label>
+                            <div className="space-y-0.5">
+                              {PRICE_PERIODS.map(pp => {
+                                const s = getPromoSetting(pkKey, pp.pIdx);
+                                return (
+                                  <div key={pp.pIdx} className="flex items-center gap-1 text-[10px]">
+                                    <span className="text-slate-400 w-4 text-right">{pp.pIdx + 1}</span>
+                                    <span className="text-slate-500 flex-1 truncate">{pp.dates}</span>
+                                    <span className={`px-1.5 py-0.5 rounded font-bold ${s.mode === 'auto' ? 'bg-slate-100 text-slate-400' : 'bg-orange-100 text-orange-600'}`}>{s.mode === 'auto' ? 'авто' : 'ручн.'}</span>
+                                    {s.name && <span className={`font-semibold truncate max-w-[60px] ${pk.color}`}>{s.name}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -6117,14 +6183,13 @@ export default function App() {
             )}
 
             {activeTab === 'partners' && (userRole === 'ADMIN' || userRole === 'OWNER') && (() => {
-              const EMPTY_PARTNER: Omit<PartnerChannel, 'id'> = { name: '', type: 'corporate', basePackage: 'hb', pricingType: 'discount', defaultValue: 10, periodValues: {}, allocationShare: 5, notes: '', active: true };
+              const EMPTY_PARTNER: Omit<PartnerChannel, 'id'> = { name: '', type: 'corporate', basePackage: 'hb', pricingType: 'discount', defaultValue: 10, periodValues: {}, allocationShare: 0, notes: '', active: true };
               const getEffectiveValue = (p: PartnerChannel, pIdx: number) => p.periodValues[pIdx] !== undefined ? p.periodValues[pIdx] : p.defaultValue;
               const getEffectivePrice = (p: PartnerChannel, pIdx: number) => {
                 const basePrice = prices[ROOM_TYPES[0].key]?.[p.basePackage]?.[pIdx] ?? 0;
                 if (p.pricingType === 'netto') return getEffectiveValue(p, pIdx);
                 return Math.round(basePrice * (1 - getEffectiveValue(p, pIdx) / 100));
               };
-              const totalAlloc = partners.filter(p => p.active).reduce((s, p) => s + p.allocationShare, 0);
               return (
                 <motion.div key="partners" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
                   {/* Header */}
@@ -6141,11 +6206,7 @@ export default function App() {
                   {/* Stats */}
                   <div className="flex flex-wrap gap-4">
                     <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3"><p className="text-[10px] font-bold uppercase text-indigo-600 tracking-wide">Партнёров</p><p className="text-2xl font-black text-indigo-700">{partners.length}</p></div>
-                    <div className={`border rounded-xl px-5 py-3 ${totalAlloc > 100 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-wide ${totalAlloc > 100 ? 'text-red-600' : 'text-emerald-600'}`}>Суммарная доля</p>
-                      <p className={`text-2xl font-black ${totalAlloc > 100 ? 'text-red-700' : 'text-emerald-700'}`}>{totalAlloc}%</p>
-                    </div>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-3"><p className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Прямые продажи</p><p className="text-2xl font-black text-slate-700">{Math.max(0, 100 - totalAlloc)}%</p></div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3"><p className="text-[10px] font-bold uppercase text-emerald-600 tracking-wide">Активных</p><p className="text-2xl font-black text-emerald-700">{partners.filter(p => p.active).length}</p></div>
                   </div>
 
                   {partners.length === 0 ? (
@@ -6163,7 +6224,6 @@ export default function App() {
                               <th className="text-left px-4 py-3 font-semibold text-slate-600">Партнёр</th>
                               <th className="text-left px-4 py-3 font-semibold text-slate-600">Тип</th>
                               <th className="text-left px-4 py-3 font-semibold text-slate-600">Условие</th>
-                              <th className="text-center px-4 py-3 font-semibold text-slate-600">Доля</th>
                               <th className="text-center px-4 py-3 font-semibold text-slate-600">Цена (ст. номер / П1)</th>
                               <th className="text-center px-4 py-3 font-semibold text-slate-600">Статус</th>
                               <th className="px-4 py-3"></th>
