@@ -353,7 +353,21 @@ export default function App() {
   const [rooms, setRooms] = useState({ standard: 227, comfort: 240, lux: 0 });
   const DEFAULT_PKG_MIX = { aqua_bb: 2, aqua_hb: 3, aqua_fb: 5, ultra: 40, spa: 20, med: 25, promo: 5 };
   const [pkgMixByMonth, setPkgMixByMonth] = useState<Array<typeof DEFAULT_PKG_MIX>>(MONTHS.map(() => ({ ...DEFAULT_PKG_MIX })));
-  const [prices, setPrices] = useState(initialPrices());
+  const [prices, setPrices] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.prices) {
+          const firstRt = Object.values(parsed.prices)[0] as any;
+          const firstPk = firstRt ? Object.values(firstRt)[0] : null;
+          const isOldFormat = firstPk && !Array.isArray(firstPk);
+          if (!isOldFormat) return parsed.prices;
+        }
+      }
+    } catch (e) {}
+    return initialPrices();
+  });
   const [seasons, setSeasons] = useState(SEASONS);
   const [targetGOPMargin, setTargetGOPMargin] = useState(40); // Target GOP Margin %
   const [seasonData, setSeasonData] = useState(() =>
@@ -475,7 +489,16 @@ export default function App() {
   // Per-period PROMO settings: custom name and auto/manual mode
   const [promoPeriodSettings, setPromoPeriodSettings] = useState<{
     [pIdx: number]: { name: string; mode: 'auto' | 'manual' }
-  }>({});
+  }>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.promoPeriodSettings) return parsed.promoPeriodSettings;
+      }
+    } catch (e) {}
+    return {};
+  });
   const getPromoSetting = (pIdx: number) => ({
     name: promoPeriodSettings[pIdx]?.name || '',
     mode: (promoPeriodSettings[pIdx]?.mode || 'auto') as 'auto' | 'manual',
