@@ -98,7 +98,7 @@ const PRICE_PERIODS = [
 
 const MONTHS = [
   { name: "Январь",   days: 31, distribution: [{ pIdx: 9, sKey: 'low',      days: 31, displayDates: "01.01–31.01" }] },
-  { name: "Февраль",  days: 28, distribution: [{ pIdx: 0, sKey: 'low',      days: 11, displayDates: "01.02–11.02" }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 9 }] },
+  { name: "Февраль",  days: 28, distribution: [{ pIdx: 0, sKey: 'low', days: 11, displayDates: "01.02–11.02" }, { pIdx: 0, sKey: 'low', days: 8 }, { pIdx: 1, sKey: 'low', days: 4 }, { pIdx: 2, sKey: 'low', days: 5, displayDates: "24.02–28.02" }] },
   { name: "Март",     days: 31, distribution: [{ pIdx: 2, sKey: 'low',      days: 5  }, { pIdx: 1, sKey: 'low', days: 4 }, { pIdx: 2, sKey: 'low', days: 18 }, { pIdx: 1, sKey: 'low', days: 4 }] },
   { name: "Апрель",   days: 30, distribution: [{ pIdx: 1, sKey: 'low',      days: 30 }] },
   { name: "Май",      days: 31, distribution: [{ pIdx: 3, sKey: 'holidays', days: 2  }, { pIdx: 4, sKey: 'mid', days: 5 }, { pIdx: 3, sKey: 'holidays', days: 3 }, { pIdx: 4, sKey: 'mid', days: 21 }] },
