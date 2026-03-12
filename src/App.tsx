@@ -6320,8 +6320,21 @@ export default function App() {
                               <label className="text-xs font-bold text-slate-500 uppercase block mb-1">
                                 {partnerForm.pricingType === 'netto' ? 'Нетто-цена (₽)' : 'Ставка (%)'}
                               </label>
-                              <input type="number" value={partnerForm.defaultValue ?? 10} onChange={e => setPartnerForm(f => ({ ...f, defaultValue: parseFloat(e.target.value) || 0 }))} className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
-                              <p className="text-[10px] text-slate-400 mt-1">{partnerForm.pricingType === 'netto' ? 'Отель получает эту сумму' : 'Единая ставка для всех периодов'}</p>
+                              {(() => {
+                                const pvVals = (Object.values(partnerForm.periodValues || {}) as number[]).filter(v => v > 0);
+                                const avg = pvVals.length > 0 ? Math.round(pvVals.reduce((a, b) => a + b, 0) / pvVals.length) : null;
+                                return avg !== null ? (
+                                  <>
+                                    <input type="number" value={avg} readOnly className="w-full border rounded-lg p-2.5 text-sm outline-none bg-slate-50 text-slate-500 cursor-default" />
+                                    <p className="text-[10px] text-slate-400 mt-1">Среднее по периодам (авто)</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <input type="number" value={partnerForm.defaultValue ?? 10} onChange={e => setPartnerForm(f => ({ ...f, defaultValue: parseFloat(e.target.value) || 0 }))} className="w-full border rounded-lg p-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+                                    <p className="text-[10px] text-slate-400 mt-1">{partnerForm.pricingType === 'netto' ? 'Отель получает эту сумму' : 'Единая ставка для всех периодов'}</p>
+                                  </>
+                                );
+                              })()}
                             </div>
                             <div>
                               <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Доля загрузки (%)</label>
