@@ -31,7 +31,10 @@ import {
   Table2,
   FileText,
   ShoppingBag,
-  Plus
+  Plus,
+  ShieldCheck,
+  CheckCircle2,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -1459,6 +1462,7 @@ export default function App() {
               color: 'text-slate-400',
               items: [
                 { id: 'instructions', label: 'Инструкция', icon: BookOpen },
+                { id: 'admin-guide', label: 'Инструкция ADMIN', icon: ShieldCheck, roles: ['ADMIN'] },
               ]
             }
           ].map((group, gIdx) => {
@@ -3384,8 +3388,201 @@ export default function App() {
               </div>
             </div>
           )}
+            {activeTab === 'admin-guide' && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              {/* Header */}
+              <div className="bg-indigo-900 text-white p-6 rounded-2xl flex items-center gap-4">
+                <div className="p-3 bg-white/10 rounded-xl"><ShieldCheck size={28} /></div>
+                <div>
+                  <h2 className="text-xl font-bold">Инструкция администратора</h2>
+                  <p className="text-indigo-200 text-sm mt-0.5">Финансовая модель Aqva SPA Resort 4★ · 2026</p>
+                </div>
+              </div>
+
+              {/* Роли и доступ */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                  Роли и доступ
+                </h3>
+                <div className="overflow-hidden border border-slate-200 rounded-xl">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                      <tr><th className="px-4 py-2 text-left">Роль</th><th className="px-4 py-2 text-left">Что видит</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <tr><td className="px-4 py-2 font-medium text-slate-500">GUEST</td><td className="px-4 py-2 text-slate-600">Основная, Детальный расчёт, Медцентр</td></tr>
+                      <tr><td className="px-4 py-2 font-medium text-orange-600">OWNER</td><td className="px-4 py-2 text-slate-600">+ Сезонные продукты, Партнёры и каналы</td></tr>
+                      <tr className="bg-indigo-50"><td className="px-4 py-2 font-bold text-indigo-700">ADMIN</td><td className="px-4 py-2 text-slate-700 font-medium">Всё выше + Пояснительная записка + эта инструкция</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">⚠️ Пароли хранятся в App.tsx. Менять только по явному запросу владельца.</p>
+              </div>
+
+              {/* Детальный расчёт — ПРОМО */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                  Детальный расчёт — ПРОМО-тариф
+                </h3>
+                <div className="space-y-3">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="font-semibold text-slate-800 text-sm mb-1">Режим «авто −X%» (по умолчанию)</p>
+                    <p className="text-sm text-slate-600">Цена ПРОМО = базовый пакет × (1 − скидка%). Поле цены заблокировано. Скидка и базовый пакет задаются в Настройках (панель справа).</p>
+                  </div>
+                  <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
+                    <p className="font-semibold text-orange-800 text-sm mb-1">Режим «ручная цена» (оранжевый бейдж)</p>
+                    <p className="text-sm text-orange-700">Цена вводится вручную — независимо от базового пакета. Например: период P0 = «ФСС» = 3 800 ₽/ночь.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                    <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      <ChevronRight size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                      <p className="text-sm text-slate-600"><b>Переключить режим:</b> кликнуть на бейдж «авто −X%» или «ручная цена» в шапке колонки ПРОМО нужного периода.</p>
+                    </div>
+                    <div className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      <ChevronRight size={16} className="text-indigo-500 mt-0.5 shrink-0" />
+                      <p className="text-sm text-slate-600"><b>Изменить название:</b> кликнуть на поле «ПРОМО» в шапке → ввести своё («ФСС», «Акция март», «Корпоратив»).</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800 text-slate-100 rounded-lg p-3 text-xs font-mono">
+                    <p className="text-slate-400 mb-1">// Алгоритм ПРОМО:</p>
+                    <p>если режим == 'auto':</p>
+                    <p className="pl-4">цена = базовый_пакет[период] × (1 − скидка% / 100)</p>
+                    <p>если режим == 'manual':</p>
+                    <p className="pl-4">цена = введённая вручную (не меняется автоматически)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Партнёры и каналы */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                  Партнёры и каналы
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label: 'Скидка % от тарифа', color: 'blue', desc: 'Корпоратив 10–20%. Цена партнёра = тариф × (1 − скидка%).' },
+                    { label: 'Брутто + комиссия %', color: 'orange', desc: 'OTA / ТА. Гость платит полную цену, отель получает за вычетом комиссии.' },
+                    { label: 'Нетто-цена (фикс)', color: 'purple', desc: 'ФСС / ДМС. Фиксированная цена на год или помесячно.' },
+                  ].map(({ label, color, desc }) => (
+                    <div key={label} className={`p-3 bg-${color}-50 border border-${color}-100 rounded-xl`}>
+                      <p className={`font-bold text-${color}-700 text-sm mb-1`}>{label}</p>
+                      <p className="text-xs text-slate-600">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-slate-800 text-slate-100 rounded-lg p-3 text-xs font-mono mb-3">
+                  <p className="text-slate-400 mb-1">// Эффективная цена партнёра:</p>
+                  <p>discount: тариф × (1 − скидка% / 100)</p>
+                  <p>commission: тариф × (1 − комиссия% / 100)</p>
+                  <p>netto: фиксированная нетто-цена</p>
+                  <p className="text-slate-400 mt-1">// Переопределение по периодам:</p>
+                  <p>значение = periodValues[pIdx] ?? defaultValue</p>
+                </div>
+                <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                  <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-amber-700"><b>Контроль долей:</b> сумма долей всех партнёров не должна превышать 100%. Остаток — прямые продажи. Следить за строкой статистики вверху вкладки.</p>
+                </div>
+              </div>
+
+              {/* Сезонные продукты */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                  Сезонные продукты
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    { step: '1', text: 'Нажать «Добавить продукт»' },
+                    { step: '2', text: 'Заполнить: название, пакет-основа, даты действия, цена, теги' },
+                    { step: '3', text: 'Включить флаг «В записке» — продукт попадёт в Пояснительную записку' },
+                  ].map(({ step, text }) => (
+                    <div key={step} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                      <span className="w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">{step}</span>
+                      <p className="text-sm text-slate-700">{text}</p>
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-400 mt-1 pl-1">Бейдж «Сейчас активен» появляется автоматически по текущей дате.</p>
+                </div>
+              </div>
+
+              {/* Пояснительная записка */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</span>
+                  Пояснительная записка (только ADMIN)
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                  {['Обложка + KPI из модели', 'Три сценария', 'МЦ — три потока', 'Конкуренты + ниши', 'Сезонные программы', 'Дорожная карта', 'Анализ разрыва', 'Печать / PDF'].map(item => (
+                    <div key={item} className="flex items-center gap-1.5 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                      <CheckCircle2 size={14} className="text-indigo-500 shrink-0" />
+                      <p className="text-xs text-indigo-800">{item}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-600">KPI-карточки и все расчёты берутся автоматически из модели. Для печати: кнопка «Печать / Сохранить PDF» → масштаб 90%, книжная ориентация.</p>
+              </div>
+
+              {/* Сохранение модели */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">6</span>
+                  Сохранение и восстановление модели
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <p className="font-bold text-emerald-800 text-sm mb-1">Экспорт (резервная копия)</p>
+                    <p className="text-sm text-emerald-700">Настройки → «Экспортировать» → скачается JSON со всеми параметрами. Хранить в надёжном месте.</p>
+                  </div>
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <p className="font-bold text-blue-800 text-sm mb-1">Импорт (восстановление)</p>
+                    <p className="text-sm text-blue-700">Настройки → «Импортировать» → выбрать JSON-файл. Все параметры восстановятся.</p>
+                  </div>
+                </div>
+                <div className="overflow-hidden border border-slate-200 rounded-xl">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-400 uppercase">
+                      <tr><th className="px-3 py-2 text-left">Ключ localStorage</th><th className="px-3 py-2 text-left">Данные</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <tr><td className="px-3 py-2 font-mono text-indigo-600">sochi_model_state</td><td className="px-3 py-2 text-slate-600">Все параметры модели</td></tr>
+                      <tr><td className="px-3 py-2 font-mono text-indigo-600">sochi_seasonal_products</td><td className="px-3 py-2 text-slate-600">Сезонные продукты</td></tr>
+                      <tr><td className="px-3 py-2 font-mono text-indigo-600">sochi_partners</td><td className="px-3 py-2 text-slate-600">Партнёры и каналы</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-start gap-2 mt-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                  <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
+                  <p className="text-sm text-red-700">При очистке браузера («Очистить данные сайта») всё удаляется. <b>Делать экспорт JSON перед очисткой браузера!</b></p>
+                </div>
+              </div>
+
+              {/* Быстрый старт нового сезона */}
+              <div className="bg-indigo-50 rounded-2xl border border-indigo-100 p-6">
+                <h3 className="font-bold text-indigo-900 mb-4">Быстрый старт нового сезона</h3>
+                <div className="space-y-2">
+                  {[
+                    'Детальный расчёт → ввести новые тарифы по периодам',
+                    'ПРОМО → проверить режим (авто/ручной) в нужных периодах',
+                    'Партнёры и каналы → проверить доли и условия',
+                    'Сезонные продукты → добавить новые программы, отметить «В записке»',
+                    'Пояснительная записка → проверить KPI → распечатать PDF',
+                    'Настройки → Экспортировать → сохранить JSON-резервную копию',
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2.5 bg-white rounded-lg border border-indigo-100">
+                      <span className="w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
+                      <p className="text-sm text-indigo-900">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'dashboard' && (
-              <motion.div 
+              <motion.div
                 key="dashboard"
                 initial={{ opacity: 0, y: 10 }} 
                 animate={{ opacity: 1, y: 0 }} 
