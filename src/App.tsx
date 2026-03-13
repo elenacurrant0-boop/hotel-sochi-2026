@@ -465,6 +465,8 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoadingCompetitors, setIsLoadingCompetitors] = useState(false);
   const [compDataVersion, setCompDataVersion] = useState(0);
+  const [isGeneratingResume, setIsGeneratingResume] = useState(false);
+  const [resumeText, setResumeText] = useState('');
 
   // Multi-agent AI workflow
   const AGENT_OUTPUTS_DEFAULT = {
@@ -1132,7 +1134,43 @@ ${input}`,
     setAgentImages([]);
     setAgentOutputs(AGENT_OUTPUTS_DEFAULT);
     setRunningAgent(null);
+    setResumeText('');
     try { localStorage.removeItem('sochi_agent_input'); localStorage.removeItem('sochi_agent_outputs'); } catch {}
+  };
+
+  const generateResume = async () => {
+    setIsGeneratingResume(true);
+    setResumeText('');
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const allOutputs = AGENT_DEFS
+        .map(ag => agentOutputs[ag.key]?.output ? `=== ${ag.name.toUpperCase()} ===\n${agentOutputs[ag.key].output}` : '')
+        .filter(Boolean).join('\n\n');
+      const prompt = `Ты — эксперт-консультант в wellness и гостиничном бизнесе. На основе анализа агентов составь КРАТКОЕ РЕЗЮМЕ продукта (максимум 2 страницы А4). Пиши сжато, без воды. Каждый блок — не более 5-7 строк.
+
+Структура:
+1. ПРОДУКТ — суть, для кого, ключевое УТП (3-5 предложений)
+2. КЛЮЧЕВЫЕ ВЫВОДЫ — самое важное от каждого агента (1-2 тезиса, не пересказ)
+3. РЕКОМЕНДАЦИИ ПО СОЗДАНИЮ / ДОРАБОТКЕ ПРОДУКТА — конкретные действия
+4. РИСКИ — топ-3 критических риска + кратко как каждый решить
+5. ПУТЬ К МАРЖИНАЛЬНОСТИ — что сделать чтобы продукт вышел в плюс (ценообразование, загрузка, себестоимость)
+6. ПЕРВЫЕ ШАГИ — 5 конкретных действий на ближайшие 2 недели
+7. РЕФЕРЕНСЫ — 3-5 лучших продуктов/объектов в аналогичной нише (wellness, санатории, SPA-курорты России и СНГ): название объекта, чем хороши, что конкретно можно перенять
+
+АНАЛИЗЫ АГЕНТОВ:
+${allOutputs}
+
+ИСХОДНЫЙ МАТЕРИАЛ:
+${agentInputText}`;
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      });
+      setResumeText(response.text || '');
+    } catch (err: any) {
+      setResumeText(`Ошибка генерации: ${err?.message || String(err)}`);
+    }
+    setIsGeneratingResume(false);
   };
 
   const totals = useMemo(() => {
@@ -4546,6 +4584,15 @@ ${input}`,
                               {out.status === 'running' && <span className="text-xs text-slate-500 animate-pulse">Анализирует...</span>}
                               {out.status === 'done' && <span className="text-xs text-emerald-600 font-bold">✓ Готово</span>}
                               {out.status === 'error' && <span className="text-xs text-red-500 font-bold">✗ Ошибка</span>}
+                              {out.status === 'done' && (
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(out.output).catch(() => {})}
+                                  title="Скопировать вывод"
+                                  className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-400 rounded-lg transition-colors"
+                                >
+                                  📋
+                                </button>
+                              )}
                               <button
                                 onClick={() => runAgentStep(ag.key)}
                                 disabled={!canRun}
@@ -4586,8 +4633,8 @@ ${input}`,
 
                     {/* Итоговый отчёт */}
                     {agentOutputs.planner.status === 'done' && (
-                      <div className="bg-slate-900 rounded-xl p-5">
-                        <p className="text-white font-bold mb-4 text-center">Все 6 агентов отработали — анализ и план готовы</p>
+                      <div className="bg-slate-900 rounded-xl p-5 space-y-4">
+                        <p className="text-white font-bold text-center">Все 6 агентов отработали — анализ и план готовы</p>
                         <div className="flex flex-wrap gap-3 justify-center">
                           <button
                             onClick={() => window.print()}
@@ -4596,68 +4643,55 @@ ${input}`,
                             Распечатать / PDF
                           </button>
                           <button
-                            onClick={() => {
-                              const date = new Date().toLocaleDateString('ru-RU');
-                              // Собираем ключевые данные из агентов для резюме
-                              const marketerOut = agentOutputs.marketer?.output || '';
-                              const productOut = agentOutputs.product?.output || '';
-                              const pricingOut = agentOutputs.pricing?.output || '';
-                              const strategistOut = agentOutputs.strategist?.output || '';
-                              const plannerOut = agentOutputs.planner?.output || '';
-                              const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'><style>
-body{font-family:Arial;font-size:11pt;margin:2cm;color:#1a1a2e}
+                            onClick={generateResume}
+                            disabled={isGeneratingResume}
+                            className="bg-teal-500 hover:bg-teal-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2"
+                          >
+                            {isGeneratingResume
+                              ? <><span className="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full inline-block"></span> Генерирую резюме...</>
+                              : '📄 Сформировать резюме продукта'}
+                          </button>
+                        </div>
+
+                        {resumeText && (
+                          <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-bold text-teal-300">Резюме продукта</span>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(resumeText).catch(() => {})}
+                                  className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-2.5 py-1 rounded-lg transition-colors"
+                                >📋 Копировать</button>
+                                <button
+                                  onClick={() => {
+                                    const date = new Date().toLocaleDateString('ru-RU');
+                                    const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'><style>
+body{font-family:Arial;font-size:11pt;margin:2cm;color:#1a1a2e;line-height:1.6}
 h1{font-size:16pt;color:#1a1a2e;border-bottom:3px solid #f0a500;padding-bottom:8pt;margin-bottom:16pt}
-h2{font-size:12pt;color:#2a3a8e;margin-top:14pt;margin-bottom:6pt}
-.meta{font-size:9pt;color:#666;margin-bottom:16pt}
-.block{background:#f8f9ff;border-left:4px solid #f0a500;padding:10pt 14pt;margin-bottom:12pt}
-.block p{margin:4pt 0;font-size:10pt;line-height:1.5}
-pre{font-size:9.5pt;line-height:1.5;white-space:pre-wrap;font-family:Arial}
+pre{font-size:10.5pt;white-space:pre-wrap;font-family:Arial;line-height:1.6}
 .footer{font-size:8pt;color:#999;border-top:1px solid #ddd;padding-top:8pt;margin-top:20pt}
 </style></head><body>
 <h1>📋 Резюме продукта · ${date}</h1>
-<div class="meta"><b>Объект:</b> Аква СПА Илона, Лоо (Сочи) &nbsp;|&nbsp; <b>Сегмент:</b> Средний+ &nbsp;|&nbsp; <b>Дата:</b> ${date}</div>
-
-<div class="block">
-<h2>🎯 Исходный материал</h2>
-<p>${(agentInputText || '—').replace(/\n/g,'<br/>')}</p>
-</div>
-
-<div class="block">
-<h2>🔍 Целевая аудитория и позиционирование</h2>
-<pre>${marketerOut.split('\n').slice(0,20).join('\n') || '—'}</pre>
-</div>
-
-<div class="block">
-<h2>📦 Продукт и УТП</h2>
-<pre>${productOut.split('\n').slice(0,20).join('\n') || '—'}</pre>
-</div>
-
-<div class="block">
-<h2>💰 Ценовая стратегия</h2>
-<pre>${pricingOut.split('\n').slice(0,15).join('\n') || '—'}</pre>
-</div>
-
-<div class="block">
-<h2>🎯 Стратегические приоритеты</h2>
-<pre>${strategistOut.split('\n').slice(0,20).join('\n') || '—'}</pre>
-</div>
-
-<div class="block">
-<h2>📋 План внедрения (ближайшие 30 дней)</h2>
-<pre>${plannerOut.split('\n').slice(0,25).join('\n') || '—'}</pre>
-</div>
-
+<p style="font-size:9pt;color:#666"><b>Объект:</b> Аква СПА Илона, Лоо (Сочи) &nbsp;|&nbsp; <b>Дата:</b> ${date}</p>
+<pre>${resumeText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
 <div class="footer">Сформировано AI-лабораторией продукта · Аква СПА Илона · ${date}</div>
 </body></html>`;
-                              const blob = new Blob([html], { type: 'application/msword' });
-                              const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                              a.download = `резюме-продукта-${date.replace(/\./g,'-')}.doc`; a.click();
-                            }}
-                            className="bg-teal-500 hover:bg-teal-400 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
-                          >
-                            📄 Резюме продукта (.doc)
-                          </button>
-                        </div>
+                                    const blob = new Blob([html], { type: 'application/msword' });
+                                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                                    a.download = `резюме-продукта-${date.replace(/\./g,'-')}.doc`; a.click();
+                                  }}
+                                  className="text-xs bg-teal-600 hover:bg-teal-500 text-white font-bold px-2.5 py-1 rounded-lg transition-colors"
+                                >⬇ Скачать .doc</button>
+                              </div>
+                            </div>
+                            <textarea
+                              value={resumeText}
+                              onChange={e => setResumeText(e.target.value)}
+                              rows={20}
+                              className="w-full bg-slate-700 text-slate-100 border border-slate-600 rounded-xl px-4 py-3 text-xs font-mono leading-relaxed outline-none focus:border-teal-400 resize-none"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                     {agentOutputs.strategist.status === 'done' && agentOutputs.planner.status !== 'done' && (
