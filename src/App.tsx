@@ -4528,10 +4528,12 @@ ${input}`,
                         orange: 'bg-orange-600 hover:bg-orange-700',
                         emerald: 'bg-emerald-600 hover:bg-emerald-700',
                         rose: 'bg-rose-600 hover:bg-rose-700',
+                        teal: 'bg-teal-600 hover:bg-teal-700',
                       };
                       const borderMap: Record<string, string> = {
                         indigo: 'border-indigo-200', purple: 'border-purple-200',
                         orange: 'border-orange-200', emerald: 'border-emerald-200', rose: 'border-rose-200',
+                        teal: 'border-teal-200',
                       };
                       return (
                         <div key={ag.key} className={`rounded-xl border-2 p-5 transition-all ${out.status === 'idle' && !prevDone ? 'opacity-40' : ''} ${borderMap[ag.color]}`}>
