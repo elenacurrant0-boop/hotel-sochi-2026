@@ -466,6 +466,18 @@ export default function App() {
   const [isLoadingCompetitors, setIsLoadingCompetitors] = useState(false);
   const [compDataVersion, setCompDataVersion] = useState(0);
 
+  // Multi-agent AI workflow
+  const [agentInputText, setAgentInputText] = useState('');
+  const [agentImages, setAgentImages] = useState<Array<{name: string; data: string; mimeType: string}>>([]);
+  const [agentOutputs, setAgentOutputs] = useState<Record<string, {status: 'idle'|'running'|'done'|'error'; output: string; feedback: string}>>({
+    marketer:   { status: 'idle', output: '', feedback: '' },
+    product:    { status: 'idle', output: '', feedback: '' },
+    critic:     { status: 'idle', output: '', feedback: '' },
+    pricing:    { status: 'idle', output: '', feedback: '' },
+    strategist: { status: 'idle', output: '', feedback: '' },
+  });
+  const [runningAgent, setRunningAgent] = useState<string | null>(null);
+
   const [calcConfig, setCalcConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('sochi_model_data');
@@ -956,6 +968,134 @@ export default function App() {
     } finally {
       setIsLoadingCompetitors(false);
     }
+  };
+
+  const AGENT_DEFS = [
+    {
+      key: 'marketer', icon: '🔍', name: 'Маркетолог',
+      color: 'indigo',
+      prompt: (input: string) => `Ты — опытный маркетолог в сфере санаторно-курортного отдыха и wellness (Россия, Краснодарский край).
+Проанализируй входной материал и дай структурированный ответ по блокам:
+
+1. ЦЕЛЕВАЯ АУДИТОРИЯ: кто это, возраст, уровень дохода, потребности и боли
+2. ПОЗИЦИОНИРОВАНИЕ: как продукт/конкурент себя позиционирует на рынке
+3. КАНАЛЫ ПРИВЛЕЧЕНИЯ: через что продаётся, какие каналы работают
+4. МАРКЕТИНГОВЫЕ ПРЕИМУЩЕСТВА: что можно использовать в продвижении
+5. ЧТО НЕ РАБОТАЕТ: слабые места в подаче и позиционировании
+
+Контекст нашего объекта: Аква СПА Илона, Лоо (Сочи), средний+ сегмент, аквапарк + медицина + SPA, пакеты BB/HB/FB/Ультра/СПА/Мед.
+
+ВХОДНОЙ МАТЕРИАЛ:
+${input}`,
+    },
+    {
+      key: 'product', icon: '📦', name: 'Продуктолог',
+      color: 'purple',
+      prompt: (input: string) => `Ты — продуктолог в сфере wellness и санаторного отдыха. Видишь анализ маркетолога и обратную связь.
+Проанализируй продукт и дай ответ по блокам:
+
+1. СОСТАВ ПРОДУКТА: что включено, что нет, логика формирования пакета
+2. УТП (уникальное торговое предложение): чем реально отличается от конкурентов
+3. ПРОБЕЛЫ И СЛАБЫЕ МЕСТА: чего не хватает в продукте
+4. ПРЕДЛОЖЕНИЯ ПО УЛУЧШЕНИЮ: конкретные добавления/изменения в наполнении
+5. БЕНЧМАРКИ: что лучшие конкуренты делают по-другому
+
+${input}`,
+    },
+    {
+      key: 'critic', icon: '⚡', name: 'Критик',
+      color: 'orange',
+      prompt: (input: string) => `Ты — жёсткий, но конструктивный бизнес-критик. Твоя задача — найти всё что сделано плохо и почему это не сработает.
+Проанализируй и дай ответ по блокам:
+
+1. КРИТИЧЕСКИЕ РИСКИ: что может провалиться и почему
+2. ЧТО КОНКУРЕНТЫ ДЕЛАЮТ ЛУЧШЕ: конкретные примеры
+3. СЛАБЫЕ МЕСТА ПРОДУКТА: то что раздражает гостей или не продаётся
+4. ЧТО НУЖНО ИЗМЕНИТЬ НЕМЕДЛЕННО: приоритет 1 (критично)
+5. ЧТО УЛУЧШИТЬ В СРЕДНЕЙ ПЕРСПЕКТИВЕ: приоритет 2
+
+Будь конкретным, без дипломатии.
+
+${input}`,
+    },
+    {
+      key: 'pricing', icon: '💰', name: 'Ценообразователь',
+      color: 'emerald',
+      prompt: (input: string) => `Ты — эксперт по ценообразованию в гостиничном бизнесе и wellness (Revenue Management).
+Проанализируй ценовую стратегию и дай ответ по блокам:
+
+1. КОНКУРЕНТОСПОСОБНОСТЬ ЦЕН: дорого/дёшево относительно рынка, почему
+2. СООТНОШЕНИЕ ЦЕНА/НАПОЛНЕНИЕ: какие пакеты недооценены, какие переоценены
+3. ЦЕНОВЫЕ ОКНА: где можно поднять цену без потери спроса
+4. СЕЗОННАЯ СТРАТЕГИЯ: как менять цены по сезонам
+5. РЕКОМЕНДАЦИИ ПО ТАРИФАМ: конкретные цифры и изменения
+
+${input}`,
+    },
+    {
+      key: 'strategist', icon: '🎯', name: 'Стратег',
+      color: 'rose',
+      prompt: (input: string) => `Ты — стратегический консультант в гостиничном и wellness-бизнесе.
+Синтезируй все анализы предыдущих агентов в итоговую стратегию.
+
+1. ТОП-5 СТРАТЕГИЧЕСКИХ ПРИОРИТЕТОВ: что делать в первую очередь
+2. ДОРОЖНАЯ КАРТА: что внедрить в ближайшие 30/90/180 дней
+3. ПРОДУКТОВАЯ СТРАТЕГИЯ: как развивать продуктовую линейку
+4. ЦЕНОВАЯ СТРАТЕГИЯ: ключевые решения по тарифам
+5. МЕТРИКИ УСПЕХА: как измерять результат
+6. ИТОГОВЫЙ ВЫВОД: 3-4 предложения для генерального директора
+
+${input}`,
+    },
+  ] as const;
+
+  const buildContext = (upToKey: string) => {
+    const order = ['marketer', 'product', 'critic', 'pricing', 'strategist'];
+    const idx = order.indexOf(upToKey);
+    let ctx = `ИСХОДНЫЙ МАТЕРИАЛ:\n${agentInputText}\n\n`;
+    order.slice(0, idx).forEach(k => {
+      const ag = AGENT_DEFS.find(a => a.key === k);
+      const out = agentOutputs[k];
+      if (out.output) ctx += `--- ${ag?.name?.toUpperCase()} ---\n${out.output}\n`;
+      if (out.feedback) ctx += `ОБРАТНАЯ СВЯЗЬ ПОЛЬЗОВАТЕЛЯ:\n${out.feedback}\n`;
+      ctx += '\n';
+    });
+    return ctx;
+  };
+
+  const runAgentStep = async (agentKey: string) => {
+    const agDef = AGENT_DEFS.find(a => a.key === agentKey);
+    if (!agDef) return;
+    setRunningAgent(agentKey);
+    setAgentOutputs(prev => ({ ...prev, [agentKey]: { ...prev[agentKey], status: 'running', output: '' } }));
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const context = buildContext(agentKey);
+      const parts: any[] = [{ text: agDef.prompt(context) }];
+      agentImages.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } }));
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{ role: 'user', parts }],
+        config: { tools: [{ googleSearch: {} }] },
+      });
+      setAgentOutputs(prev => ({ ...prev, [agentKey]: { ...prev[agentKey], status: 'done', output: response.text || '' } }));
+    } catch {
+      setAgentOutputs(prev => ({ ...prev, [agentKey]: { ...prev[agentKey], status: 'error', output: 'Ошибка. Попробуйте ещё раз.' } }));
+    }
+    setRunningAgent(null);
+  };
+
+  const resetAgentSession = () => {
+    setAgentInputText('');
+    setAgentImages([]);
+    setAgentOutputs({
+      marketer:   { status: 'idle', output: '', feedback: '' },
+      product:    { status: 'idle', output: '', feedback: '' },
+      critic:     { status: 'idle', output: '', feedback: '' },
+      pricing:    { status: 'idle', output: '', feedback: '' },
+      strategist: { status: 'idle', output: '', feedback: '' },
+    });
+    setRunningAgent(null);
   };
 
   const totals = useMemo(() => {
@@ -4244,6 +4384,147 @@ export default function App() {
                         </div>
                       );
                     })()}
+                  </div>
+                </div>
+
+                {/* ═══════════ МУЛЬТИ-АГЕНТНЫЙ AI ВОРКФЛОУ ═══════════ */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white p-6 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles size={20} className="text-indigo-300" /> AI-лаборатория продукта</h2>
+                      <p className="text-xs text-indigo-300 mt-1 uppercase tracking-widest">5 специализированных агентов · анализ · исследование · стратегия</p>
+                    </div>
+                    <button onClick={resetAgentSession} className="text-xs text-indigo-300 hover:text-white border border-indigo-600 hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors">
+                      Сбросить сессию
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    {/* Блок ввода */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                      <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                        <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center font-bold">1</span>
+                        Входные данные
+                      </h3>
+                      <textarea
+                        value={agentInputText}
+                        onChange={e => setAgentInputText(e.target.value)}
+                        rows={5}
+                        placeholder="Опишите продукт, идею или вставьте текст приказа/описания. Например: «Хотим создать новый пакет для женской аудитории 35-50 лет включающий...»"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-400 resize-none bg-white"
+                      />
+                      <div className="mt-3 flex items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer bg-white border border-slate-200 hover:border-indigo-400 rounded-lg px-3 py-2 text-xs text-slate-600 transition-colors">
+                          <span>📎 Прикрепить скрин или файл</span>
+                          <input
+                            type="file"
+                            accept="image/*,.txt"
+                            multiple
+                            className="hidden"
+                            onChange={e => {
+                              Array.from(e.target.files || []).forEach(file => {
+                                const reader = new FileReader();
+                                reader.onload = ev => {
+                                  const result = ev.target?.result as string;
+                                  const base64 = result.split(',')[1];
+                                  setAgentImages(prev => [...prev, { name: file.name, data: base64, mimeType: file.type }]);
+                                };
+                                reader.readAsDataURL(file);
+                              });
+                            }}
+                          />
+                        </label>
+                        {agentImages.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {agentImages.map((img, i) => (
+                              <span key={i} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-lg">
+                                {img.name}
+                                <button onClick={() => setAgentImages(prev => prev.filter((_, j) => j !== i))} className="text-indigo-400 hover:text-red-500 ml-1">×</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Цепочка агентов */}
+                    {AGENT_DEFS.map((ag, idx) => {
+                      const out = agentOutputs[ag.key];
+                      const prevKey = idx > 0 ? AGENT_DEFS[idx - 1].key : null;
+                      const prevDone = idx === 0 ? true : agentOutputs[prevKey!].status === 'done';
+                      const canRun = prevDone && agentInputText.trim().length > 0 && runningAgent === null;
+                      const colorMap: Record<string, string> = {
+                        indigo: 'bg-indigo-600 hover:bg-indigo-700',
+                        purple: 'bg-purple-600 hover:bg-purple-700',
+                        orange: 'bg-orange-600 hover:bg-orange-700',
+                        emerald: 'bg-emerald-600 hover:bg-emerald-700',
+                        rose: 'bg-rose-600 hover:bg-rose-700',
+                      };
+                      const borderMap: Record<string, string> = {
+                        indigo: 'border-indigo-200', purple: 'border-purple-200',
+                        orange: 'border-orange-200', emerald: 'border-emerald-200', rose: 'border-rose-200',
+                      };
+                      return (
+                        <div key={ag.key} className={`rounded-xl border-2 p-5 transition-all ${out.status === 'idle' && !prevDone ? 'opacity-40' : ''} ${borderMap[ag.color]}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                              <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center font-bold">{idx + 2}</span>
+                              <span className="text-lg">{ag.icon}</span> {ag.name}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                              {out.status === 'running' && <span className="text-xs text-slate-500 animate-pulse">Анализирует...</span>}
+                              {out.status === 'done' && <span className="text-xs text-emerald-600 font-bold">✓ Готово</span>}
+                              {out.status === 'error' && <span className="text-xs text-red-500 font-bold">✗ Ошибка</span>}
+                              <button
+                                onClick={() => runAgentStep(ag.key)}
+                                disabled={!canRun}
+                                className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 ${colorMap[ag.color]}`}
+                              >
+                                {runningAgent === ag.key
+                                  ? <><span className="animate-spin w-3 h-3 border-2 border-white border-t-transparent rounded-full inline-block"></span> Работает...</>
+                                  : out.status === 'done' ? '↻ Перезапустить' : '▶ Запустить'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {(out.status === 'running' || out.status === 'done' || out.status === 'error') && (
+                            <textarea
+                              value={out.output}
+                              onChange={e => setAgentOutputs(prev => ({ ...prev, [ag.key]: { ...prev[ag.key], output: e.target.value } }))}
+                              rows={out.status === 'running' ? 3 : 8}
+                              placeholder={out.status === 'running' ? 'Агент работает...' : ''}
+                              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-400 resize-none font-mono text-xs leading-relaxed"
+                            />
+                          )}
+
+                          {out.status === 'done' && (
+                            <div className="mt-3">
+                              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Ваша обратная связь агенту</label>
+                              <textarea
+                                value={out.feedback}
+                                onChange={e => setAgentOutputs(prev => ({ ...prev, [ag.key]: { ...prev[ag.key], feedback: e.target.value } }))}
+                                rows={2}
+                                placeholder="Уточните, добавьте комментарий или скорректируйте направление перед переходом к следующему агенту..."
+                                className="w-full border border-dashed border-slate-300 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-400 resize-none bg-slate-50"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Итоговый отчёт */}
+                    {agentOutputs.strategist.status === 'done' && (
+                      <div className="bg-slate-900 rounded-xl p-5 text-center">
+                        <p className="text-white font-bold mb-3">Анализ завершён — все 5 агентов отработали</p>
+                        <button
+                          onClick={() => window.print()}
+                          className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-6 py-2.5 rounded-xl text-sm transition-colors"
+                        >
+                          Распечатать / Сохранить PDF
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
