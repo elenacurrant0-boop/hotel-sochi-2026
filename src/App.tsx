@@ -6180,7 +6180,7 @@ export default function App() {
                         </div>
                         <div>
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Теги (через запятую)</label>
-                          <input type="text" value={Array.isArray(seasonalForm.tags) ? seasonalForm.tags.join(', ') : ''} onChange={e => setSeasonalForm(f => ({ ...f, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" placeholder="грязелечение, физиотерапия, ..." />
+                          <input key={seasonalForm.tags.join('|')} type="text" defaultValue={Array.isArray(seasonalForm.tags) ? seasonalForm.tags.join(', ') : ''} onBlur={e => setSeasonalForm(f => ({ ...f, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400" placeholder="грязелечение, физиотерапия, ..." />
                         </div>
                         <div>
                           <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Заметки (внутренние)</label>
