@@ -1873,6 +1873,7 @@ ${agentInputText}`;
               color: 'text-indigo-600',
               items: [
                 { id: 'admin', label: 'Панель управления', icon: Settings },
+                { id: 'marketing', label: 'Аналитик (ИИ)', icon: Sparkles },
               ]
             },
             {
@@ -1908,7 +1909,6 @@ ${agentInputText}`;
                 { id: 'detail', label: 'Детальный расчёт', icon: Table2, demoLocked: true },
                 { id: 'report', label: 'Отчет Аналитику', icon: Printer, demoLocked: true },
                 { id: 'exec-report', label: 'Пояснительная записка', icon: FileText, roles: ['ADMIN'] },
-                { id: 'marketing', label: 'Аналитик (ИИ)', icon: Sparkles, demoLocked: true },
                 { id: 'kpi', label: 'Операционка (KPI)', icon: Activity, demoLocked: true },
                 { id: 'critical', label: 'Анализ рисков', icon: AlertCircle, demoLocked: true },
               ]
