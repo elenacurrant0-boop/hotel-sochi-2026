@@ -467,16 +467,38 @@ export default function App() {
   const [compDataVersion, setCompDataVersion] = useState(0);
 
   // Multi-agent AI workflow
-  const [agentInputText, setAgentInputText] = useState('');
+  const AGENT_OUTPUTS_DEFAULT = {
+    marketer:   { status: 'idle' as const, output: '', feedback: '' },
+    product:    { status: 'idle' as const, output: '', feedback: '' },
+    critic:     { status: 'idle' as const, output: '', feedback: '' },
+    pricing:    { status: 'idle' as const, output: '', feedback: '' },
+    strategist: { status: 'idle' as const, output: '', feedback: '' },
+  };
+  const [agentInputText, setAgentInputText] = useState(() => {
+    try { return localStorage.getItem('sochi_agent_input') || ''; } catch { return ''; }
+  });
   const [agentImages, setAgentImages] = useState<Array<{name: string; data: string; mimeType: string}>>([]);
-  const [agentOutputs, setAgentOutputs] = useState<Record<string, {status: 'idle'|'running'|'done'|'error'; output: string; feedback: string}>>({
-    marketer:   { status: 'idle', output: '', feedback: '' },
-    product:    { status: 'idle', output: '', feedback: '' },
-    critic:     { status: 'idle', output: '', feedback: '' },
-    pricing:    { status: 'idle', output: '', feedback: '' },
-    strategist: { status: 'idle', output: '', feedback: '' },
+  const [agentOutputs, setAgentOutputs] = useState<Record<string, {status: 'idle'|'running'|'done'|'error'; output: string; feedback: string}>>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_agent_outputs');
+      if (saved) return { ...AGENT_OUTPUTS_DEFAULT, ...JSON.parse(saved) };
+    } catch {}
+    return AGENT_OUTPUTS_DEFAULT;
   });
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
+
+  // Persist agent session to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem('sochi_agent_input', agentInputText); } catch {}
+  }, [agentInputText]);
+  useEffect(() => {
+    try {
+      const toSave = Object.fromEntries(
+        Object.entries(agentOutputs).map(([k, v]) => [k, { ...v, status: v.status === 'running' ? 'idle' : v.status }])
+      );
+      localStorage.setItem('sochi_agent_outputs', JSON.stringify(toSave));
+    } catch {}
+  }, [agentOutputs]);
 
   const [calcConfig, setCalcConfig] = useState(() => {
     try {
@@ -1089,14 +1111,9 @@ ${input}`,
   const resetAgentSession = () => {
     setAgentInputText('');
     setAgentImages([]);
-    setAgentOutputs({
-      marketer:   { status: 'idle', output: '', feedback: '' },
-      product:    { status: 'idle', output: '', feedback: '' },
-      critic:     { status: 'idle', output: '', feedback: '' },
-      pricing:    { status: 'idle', output: '', feedback: '' },
-      strategist: { status: 'idle', output: '', feedback: '' },
-    });
+    setAgentOutputs(AGENT_OUTPUTS_DEFAULT);
     setRunningAgent(null);
+    try { localStorage.removeItem('sochi_agent_input'); localStorage.removeItem('sochi_agent_outputs'); } catch {}
   };
 
   const totals = useMemo(() => {
