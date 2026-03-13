@@ -499,6 +499,17 @@ export default function App() {
     return {};
   });
 
+  const [compOverrides, setCompOverrides] = useState<Record<string, { price: string; promos: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('sochi_model_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.compOverrides) return parsed.compOverrides;
+      }
+    } catch(e) {}
+    return {};
+  });
+
   const getPkgComponents = (pkKey: string) => {
     const overrides = pkgCalcOverrides[pkKey] || {};
     const merged = { ...calcConfig, ...overrides };
@@ -669,7 +680,7 @@ export default function App() {
   // --- Data Sync Logic ---
   const getAllState = () => ({
     rooms, pkgMixByMonth, prices, seasons, seasonData, segmentData, segmentCoeffs,
-    costConfig, calcConfig, pkgCalcOverrides, pkgAccOverrides, medAddonConfig, roomMonthlyData,
+    costConfig, calcConfig, pkgCalcOverrides, pkgAccOverrides, compOverrides, medAddonConfig, roomMonthlyData,
     globalPriceAdj, globalOccAdj, expenseModel, monthlyFact, monthlyGuestCoeff,
     promoConfigs, packageLabels,
   });
@@ -716,6 +727,7 @@ export default function App() {
     }
     if (data.pkgCalcOverrides) setPkgCalcOverrides(data.pkgCalcOverrides);
     if (data.pkgAccOverrides) setPkgAccOverrides(data.pkgAccOverrides);
+    if (data.compOverrides) setCompOverrides(data.compOverrides);
     if (data.medAddonConfig) setMedAddonConfig(data.medAddonConfig);
     if (data.roomMonthlyData) setRoomMonthlyData(data.roomMonthlyData);
     if (data.globalPriceAdj !== undefined) setGlobalPriceAdj(data.globalPriceAdj);
@@ -2857,6 +2869,7 @@ export default function App() {
                         5. Конкурентная среда — Сочи и регион
                       </h2>
 
+                      <p className="text-[9px] text-slate-400 mb-2 no-print" style={{ fontFamily: 'Arial, sans-serif' }}>✏ Ячейки «Диапазон цен» и «Акции 2026» — редактируемые, сохраняются автоматически</p>
                       <div className="overflow-x-auto mb-5">
                         <table className="w-full text-left border-collapse text-[10px]" style={{ fontFamily: 'Arial, sans-serif' }}>
                           <thead>
@@ -2865,10 +2878,13 @@ export default function App() {
                               <th className="p-2 border border-slate-200 font-bold">Регион</th>
                               <th className="p-2 border border-slate-200 font-bold">Сегмент</th>
                               <th className="p-2 border border-slate-200 font-bold">Главная сила</th>
+                              <th className="p-2 border border-slate-200 font-bold">Диапазон цен, ₽/сут.</th>
+                              <th className="p-2 border border-slate-200 font-bold">Акции 2026</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {[
+                            {([
+                              { name: '★ Аква СПА Илона', region: 'Сочи (Лоо)', seg: 'Средний+', str: 'Аквапарк + медицина + SPA, пакеты all-inclusive', own: true },
                               { name: 'АкваЛоо', region: 'Лоо', seg: 'Средний', str: 'Крупнейший аквапарк с морской водой, круглогодично' },
                               { name: 'Акваград Hotel & SPA', region: 'Лоо', seg: 'Средний+', str: 'Новый 4★ корпус, термальные бассейны, SPA' },
                               { name: 'Санаторий «Магадан»', region: 'Лоо', seg: 'Средний', str: '№1 TripAdvisor Лоо, новый медкорпус, питание' },
@@ -2880,12 +2896,32 @@ export default function App() {
                               { name: 'Спутник Алеана', region: 'Сочи (Хоста)', seg: 'Средний+', str: '4★, Ultra All Inclusive, термальный комплекс, аквапарк' },
                               { name: 'Бридж Резорт', region: 'Сириус (Адлер)', seg: 'Средний+', str: '4★, 707 номеров, пляж 300 м, Wellness, топ-5 семейных РФ' },
                               { name: 'Сочи Парк Отель', region: 'Адлер', seg: 'Средний+', str: 'Тематический парк, аквапарк, семьи с детьми' },
-                            ].map((row, i) => (
-                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                <td className="p-2 border border-slate-200 font-bold">{row.name}</td>
+                            ] as Array<{ name: string; region: string; seg: string; str: string; own?: boolean }>).map((row, i) => (
+                              <tr key={i} className={row.own ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                <td className={`p-2 border border-slate-200 font-bold ${row.own ? 'text-amber-800' : ''}`}>{row.name}</td>
                                 <td className="p-2 border border-slate-200 text-slate-500">{row.region}</td>
                                 <td className="p-2 border border-slate-200">{row.seg}</td>
                                 <td className="p-2 border border-slate-200 text-slate-600">{row.str}</td>
+                                <td className="p-2 border border-slate-200">
+                                  <input
+                                    key={row.name + '_price'}
+                                    type="text"
+                                    defaultValue={compOverrides[row.name]?.price || ''}
+                                    onBlur={e => setCompOverrides(prev => ({ ...prev, [row.name]: { ...prev[row.name], price: e.target.value } }))}
+                                    className="w-full bg-transparent outline-none text-[10px] placeholder-slate-300"
+                                    placeholder="напр. 2000–4100"
+                                  />
+                                </td>
+                                <td className="p-2 border border-slate-200">
+                                  <input
+                                    key={row.name + '_promos'}
+                                    type="text"
+                                    defaultValue={compOverrides[row.name]?.promos || ''}
+                                    onBlur={e => setCompOverrides(prev => ({ ...prev, [row.name]: { ...prev[row.name], promos: e.target.value } }))}
+                                    className="w-full bg-transparent outline-none text-[10px] placeholder-slate-300"
+                                    placeholder="—"
+                                  />
+                                </td>
                               </tr>
                             ))}
                           </tbody>
