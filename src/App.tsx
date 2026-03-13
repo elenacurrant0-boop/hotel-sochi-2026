@@ -4395,9 +4395,16 @@ ${input}`,
                       <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles size={20} className="text-indigo-300" /> AI-лаборатория продукта</h2>
                       <p className="text-xs text-indigo-300 mt-1 uppercase tracking-widest">5 специализированных агентов · анализ · исследование · стратегия</p>
                     </div>
-                    <button onClick={resetAgentSession} className="text-xs text-indigo-300 hover:text-white border border-indigo-600 hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors">
-                      Сбросить сессию
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {Object.values(agentOutputs).some(o => o.status === 'done') && (
+                        <button onClick={() => window.print()} className="text-xs bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-3 py-1.5 rounded-lg transition-colors">
+                          Распечатать
+                        </button>
+                      )}
+                      <button onClick={resetAgentSession} className="text-xs text-indigo-300 hover:text-white border border-indigo-600 hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors">
+                        Сбросить сессию
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-6 space-y-6">
@@ -4492,7 +4499,7 @@ ${input}`,
                             <textarea
                               value={out.output}
                               onChange={e => setAgentOutputs(prev => ({ ...prev, [ag.key]: { ...prev[ag.key], output: e.target.value } }))}
-                              rows={out.status === 'running' ? 3 : 8}
+                              rows={out.status === 'running' ? 3 : 16}
                               placeholder={out.status === 'running' ? 'Агент работает...' : ''}
                               className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-400 resize-none font-mono text-xs leading-relaxed"
                             />
