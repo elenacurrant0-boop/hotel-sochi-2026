@@ -1074,13 +1074,14 @@ ${input}`,
       const parts: any[] = [{ text: agDef.prompt(context) }];
       agentImages.forEach(img => parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } }));
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts }],
-        config: { tools: [{ googleSearch: {} }] },
       });
       setAgentOutputs(prev => ({ ...prev, [agentKey]: { ...prev[agentKey], status: 'done', output: response.text || '' } }));
-    } catch {
-      setAgentOutputs(prev => ({ ...prev, [agentKey]: { ...prev[agentKey], status: 'error', output: 'Ошибка. Попробуйте ещё раз.' } }));
+    } catch (err: any) {
+      console.error('Agent error:', agentKey, err);
+      const msg = err?.message || String(err) || 'Неизвестная ошибка';
+      setAgentOutputs(prev => ({ ...prev, [agentKey]: { ...prev[agentKey], status: 'error', output: `Ошибка: ${msg}\n\nОткройте DevTools (F12) → Console для деталей.` } }));
     }
     setRunningAgent(null);
   };
