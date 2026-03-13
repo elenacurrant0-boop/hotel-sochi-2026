@@ -473,6 +473,7 @@ export default function App() {
     critic:     { status: 'idle' as const, output: '', feedback: '' },
     pricing:    { status: 'idle' as const, output: '', feedback: '' },
     strategist: { status: 'idle' as const, output: '', feedback: '' },
+    planner:    { status: 'idle' as const, output: '', feedback: '' },
   };
   const [agentInputText, setAgentInputText] = useState(() => {
     try { return localStorage.getItem('sochi_agent_input') || ''; } catch { return ''; }
@@ -1069,10 +1070,28 @@ ${input}`,
 
 ${input}`,
     },
+    {
+      key: 'planner', icon: '📋', name: 'Планировщик',
+      color: 'teal',
+      prompt: (input: string) => `Ты — проектный менеджер и эксперт по внедрению изменений в гостиничном и wellness-бизнесе.
+На основе стратегии и всех анализов составь конкретный план реализации.
+
+1. ЗАДАЧИ ПЕРВЫХ 2 НЕДЕЛЬ (критично и быстро): конкретные действия, кто отвечает (ГД / маркетолог / продукт / ресепшн / подрядчик), что нужно для запуска
+2. ЗАДАЧИ НА 1 МЕСЯЦ: следующие шаги после «быстрых побед», необходимые ресурсы
+3. ЗАДАЧИ НА 3 МЕСЯЦА: системные изменения, что требует подготовки
+4. ОТВЕТСТВЕННЫЕ И РЕСУРСЫ: таблица — задача / роль / бюджет / подрядчик (если нужен)
+5. МЕТРИКИ ГОТОВНОСТИ: как понять, что каждый блок выполнен (конкретные, измеримые)
+6. РИСКИ ВНЕДРЕНИЯ: что может затормозить и как обойти каждый риск
+7. РЕЗЮМЕ ПЛАНА: 5-6 предложений для брифинга команды — что делаем, зачем и в какой последовательности
+
+Пиши конкретно, без воды. Задачи должны быть выполнимыми, не абстрактными.
+
+${input}`,
+    },
   ] as const;
 
   const buildContext = (upToKey: string) => {
-    const order = ['marketer', 'product', 'critic', 'pricing', 'strategist'];
+    const order = ['marketer', 'product', 'critic', 'pricing', 'strategist', 'planner'];
     const idx = order.indexOf(upToKey);
     let ctx = `ИСХОДНЫЙ МАТЕРИАЛ:\n${agentInputText}\n\n`;
     order.slice(0, idx).forEach(k => {
@@ -4410,7 +4429,7 @@ ${input}`,
                   <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white p-6 flex items-center justify-between">
                     <div>
                       <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles size={20} className="text-indigo-300" /> AI-лаборатория продукта</h2>
-                      <p className="text-xs text-indigo-300 mt-1 uppercase tracking-widest">5 специализированных агентов · анализ · исследование · стратегия</p>
+                      <p className="text-xs text-indigo-300 mt-1 uppercase tracking-widest">6 специализированных агентов · анализ · исследование · стратегия · план внедрения</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {Object.values(agentOutputs).some(o => o.status === 'done') && (<>
@@ -4564,15 +4583,84 @@ ${input}`,
                     })}
 
                     {/* Итоговый отчёт */}
-                    {agentOutputs.strategist.status === 'done' && (
-                      <div className="bg-slate-900 rounded-xl p-5 text-center">
-                        <p className="text-white font-bold mb-3">Анализ завершён — все 5 агентов отработали</p>
-                        <button
-                          onClick={() => window.print()}
-                          className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-6 py-2.5 rounded-xl text-sm transition-colors"
-                        >
-                          Распечатать / Сохранить PDF
-                        </button>
+                    {agentOutputs.planner.status === 'done' && (
+                      <div className="bg-slate-900 rounded-xl p-5">
+                        <p className="text-white font-bold mb-4 text-center">Все 6 агентов отработали — анализ и план готовы</p>
+                        <div className="flex flex-wrap gap-3 justify-center">
+                          <button
+                            onClick={() => window.print()}
+                            className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
+                          >
+                            Распечатать / PDF
+                          </button>
+                          <button
+                            onClick={() => {
+                              const date = new Date().toLocaleDateString('ru-RU');
+                              // Собираем ключевые данные из агентов для резюме
+                              const marketerOut = agentOutputs.marketer?.output || '';
+                              const productOut = agentOutputs.product?.output || '';
+                              const pricingOut = agentOutputs.pricing?.output || '';
+                              const strategistOut = agentOutputs.strategist?.output || '';
+                              const plannerOut = agentOutputs.planner?.output || '';
+                              const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'><style>
+body{font-family:Arial;font-size:11pt;margin:2cm;color:#1a1a2e}
+h1{font-size:16pt;color:#1a1a2e;border-bottom:3px solid #f0a500;padding-bottom:8pt;margin-bottom:16pt}
+h2{font-size:12pt;color:#2a3a8e;margin-top:14pt;margin-bottom:6pt}
+.meta{font-size:9pt;color:#666;margin-bottom:16pt}
+.block{background:#f8f9ff;border-left:4px solid #f0a500;padding:10pt 14pt;margin-bottom:12pt}
+.block p{margin:4pt 0;font-size:10pt;line-height:1.5}
+pre{font-size:9.5pt;line-height:1.5;white-space:pre-wrap;font-family:Arial}
+.footer{font-size:8pt;color:#999;border-top:1px solid #ddd;padding-top:8pt;margin-top:20pt}
+</style></head><body>
+<h1>📋 Резюме продукта · ${date}</h1>
+<div class="meta"><b>Объект:</b> Аква СПА Илона, Лоо (Сочи) &nbsp;|&nbsp; <b>Сегмент:</b> Средний+ &nbsp;|&nbsp; <b>Дата:</b> ${date}</div>
+
+<div class="block">
+<h2>🎯 Исходный материал</h2>
+<p>${(agentInputText || '—').replace(/\n/g,'<br/>')}</p>
+</div>
+
+<div class="block">
+<h2>🔍 Целевая аудитория и позиционирование</h2>
+<pre>${marketerOut.split('\n').slice(0,20).join('\n') || '—'}</pre>
+</div>
+
+<div class="block">
+<h2>📦 Продукт и УТП</h2>
+<pre>${productOut.split('\n').slice(0,20).join('\n') || '—'}</pre>
+</div>
+
+<div class="block">
+<h2>💰 Ценовая стратегия</h2>
+<pre>${pricingOut.split('\n').slice(0,15).join('\n') || '—'}</pre>
+</div>
+
+<div class="block">
+<h2>🎯 Стратегические приоритеты</h2>
+<pre>${strategistOut.split('\n').slice(0,20).join('\n') || '—'}</pre>
+</div>
+
+<div class="block">
+<h2>📋 План внедрения (ближайшие 30 дней)</h2>
+<pre>${plannerOut.split('\n').slice(0,25).join('\n') || '—'}</pre>
+</div>
+
+<div class="footer">Сформировано AI-лабораторией продукта · Аква СПА Илона · ${date}</div>
+</body></html>`;
+                              const blob = new Blob([html], { type: 'application/msword' });
+                              const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                              a.download = `резюме-продукта-${date.replace(/\./g,'-')}.doc`; a.click();
+                            }}
+                            className="bg-teal-500 hover:bg-teal-400 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
+                          >
+                            📄 Резюме продукта (.doc)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {agentOutputs.strategist.status === 'done' && agentOutputs.planner.status !== 'done' && (
+                      <div className="bg-slate-800 rounded-xl p-4 text-center text-sm text-slate-300">
+                        Стратег готов — запустите Планировщика для завершения цикла и экспорта резюме
                       </div>
                     )}
                   </div>
