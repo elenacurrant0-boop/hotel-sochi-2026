@@ -137,6 +137,41 @@
   .accent { color: #f0a500; font-weight: bold; }
   .note-box { background: #fff8e8; border-left: 3px solid #f0a500; padding: 12px 16px; margin: 16px 0; font-size: 12px; font-family: Arial, sans-serif; }
   .warn-box { background: #fff3f3; border-left: 3px solid #cc4444; padding: 12px 16px; margin: 16px 0; font-size: 12px; font-family: Arial, sans-serif; }
+
+  /* Редактируемые поля */
+  [contenteditable] { outline: none; border-radius: 2px; }
+  [contenteditable]:hover { background: #fffde8; }
+  [contenteditable]:focus { background: #fffce0; outline: 1px dashed #f0a500; }
+  .editable-hint { font-size: 9px; color: #bbb; font-family: Arial, sans-serif; font-style: italic; }
+  td[contenteditable] { cursor: text; }
+
+  /* Кнопки тулбара */
+  .btn-doc {
+    background: #2a5caa; color: white; border: none; padding: 8px 18px;
+    font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer;
+    font-family: Arial, sans-serif;
+  }
+  .btn-doc:hover { background: #3a6ccc; }
+  .toolbar-hint { font-size: 10px; color: #667799; font-family: Arial, sans-serif; max-width: 240px; line-height: 1.3; }
+
+  /* Кастомный колонтитул при печати */
+  @page { margin: 18mm 18mm 16mm 22mm; }
+  .print-header {
+    display: none;
+  }
+  @media print {
+    .print-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: Arial, sans-serif; font-size: 9px; color: #888;
+      border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-bottom: 16px;
+    }
+    .print-header-logo { font-weight: bold; color: #1a1a2e; font-size: 10px; }
+    [contenteditable] { background: transparent !important; outline: none !important; }
+  }
+
+  /* Строка нашего объекта в таблице конкурентов */
+  tr.our-hotel td { background: #fff8e8; font-weight: bold; }
+  tr.our-hotel td:first-child { border-left: 3px solid #f0a500; }
 </style>
 </head>
 <body>
@@ -147,11 +182,22 @@
       <div class="toolbar-title">Пояснительная записка</div>
       <div class="toolbar-sub">Бюджет доходов 2026 — Aqva SPA Resort</div>
     </div>
+    <div class="toolbar-hint">При печати в PDF снимите галочку<br>«Верхние и нижние колонтитулы»</div>
   </div>
-  <button class="btn-print" onclick="window.print()">⬇ Сохранить как PDF / Распечатать</button>
+  <div style="display:flex;gap:10px;margin-left:auto;align-items:center;">
+    <button class="btn-doc" onclick="downloadDoc()">⬇ Скачать .doc</button>
+    <button class="btn-print" onclick="window.print()">⬇ PDF / Печать</button>
+  </div>
 </div>
 
 <div class="page">
+
+  <!-- КОЛОНТИТУЛ ДЛЯ ПЕЧАТИ (заменяет браузерный) -->
+  <div class="print-header">
+    <span class="print-header-logo">Aqva SPA Resort — Сочи</span>
+    <span>Пояснительная записка к бюджету доходов 2026</span>
+    <span>Конфиденциально</span>
+  </div>
 
   <!-- ОБЛОЖКА -->
   <div class="cover">
@@ -561,27 +607,117 @@
   <div class="page-break"></div>
   <h2>6. Конкурентная среда и позиционирование</h2>
 
-  <p>Проведён анализ 12 санаториев и SPA-отелей региона: Сочи, Адлер, Лазаревское, Анапа, Геленджик, Кисловодск, Красная Поляна.</p>
+  <p>Проведён анализ 11 санаториев и SPA-отелей ближайшего конкурентного окружения: Лоо, Лазаревское, Сочи, Адлер. Данные по ценам и акциям актуальны на дату подготовки — при необходимости корректируйте прямо в таблице.</p>
+  <p class="editable-hint no-print">✏ Ячейки «Диапазон цен» и «Акции 2026» — редактируемые. Кликните для изменения.</p>
 
   <table>
     <thead>
       <tr>
         <th>Объект</th>
         <th>Регион</th>
-        <th>Сегмент (₽/сут.)</th>
+        <th>Сегмент</th>
+        <th>Диапазон цен, ₽/сут.</th>
         <th>Главная сила</th>
+        <th>Акции 2026</th>
       </tr>
     </thead>
     <tbody>
-      <tr><td>Санаторий «Русь»</td><td>Сочи</td><td>5 500–7 000</td><td>Классическое лечение</td></tr>
-      <tr><td>Санаторий «Орджоникидзе»</td><td>Сочи/Мацеста</td><td>4 500–8 000</td><td>Мацестинская вода</td></tr>
-      <tr><td>Санаторий «Знание»</td><td>Сочи</td><td>4 000–6 500</td><td>ДМС/корпоратив</td></tr>
-      <tr class="highlight"><td><strong>Mriya Resort & SPA</strong></td><td>Новый Сочи</td><td>18 000–60 000</td><td>Премиум. Семьи + anti-age</td></tr>
-      <tr><td>Radisson Blu</td><td>Адлер</td><td>12 000–35 000</td><td>MICE + туристы</td></tr>
-      <tr><td>Санаторий «Актёр»</td><td>Сочи/Дагомыс</td><td>5 000–9 000</td><td>Антистресс, атмосфера</td></tr>
-      <tr><td>«Довиль»</td><td>Анапа</td><td>6 000–14 000</td><td>Семьи с детьми</td></tr>
-      <tr><td>Rosa Springs</td><td>Красная Поляна</td><td>15 000–40 000</td><td>Активный отдых, горы</td></tr>
-      <tr><td>«Пикет»</td><td>Кисловодск</td><td>9 000–18 000</td><td>Бутик, wellness-менеджмент</td></tr>
+      <tr class="our-hotel">
+        <td><strong>★ Аква СПА Илона</strong></td>
+        <td>Сочи (Лоо)</td>
+        <td>Средний+</td>
+        <td contenteditable="true">2 000–4 100</td>
+        <td>Аквапарк + медицина + SPA, пакеты all-inclusive</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>АкваЛоо</td>
+        <td>Лоо</td>
+        <td>Средний</td>
+        <td contenteditable="true">2 500–5 000</td>
+        <td>Крупнейший аквапарк с морской водой, круглогодично</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Акваград Hotel & SPA</td>
+        <td>Лоо</td>
+        <td>Средний+</td>
+        <td contenteditable="true">3 500–7 000</td>
+        <td>Новый 4★ корпус, термальные бассейны, SPA</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Санаторий «Магадан»</td>
+        <td>Лоо</td>
+        <td>Средний</td>
+        <td contenteditable="true">3 000–5 500</td>
+        <td>№1 TripAdvisor Лоо, новый медкорпус, питание</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Санаторий «Горный воздух»</td>
+        <td>Лоо</td>
+        <td>Средний</td>
+        <td contenteditable="true">2 800–5 000</td>
+        <td>Пляж, природная среда, 4 корпуса</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Одиссея Wellness Resort</td>
+        <td>Лазаревское</td>
+        <td>Премиум</td>
+        <td contenteditable="true">8 000–18 000</td>
+        <td>5★, кардиология (СПб специалисты), парк, SPA</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Санаторий «Бирюза»</td>
+        <td>Лазаревское</td>
+        <td>Эконом</td>
+        <td contenteditable="true">1 800–3 500</td>
+        <td>754 номера, центр посёлка, пляж 300 м, лечение</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Санаторий «Чемитоквадже»</td>
+        <td>Лазаревское</td>
+        <td>Средний</td>
+        <td contenteditable="true">2 500–5 000</td>
+        <td>Военный санаторий, бальнео, грязи, 50 га</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Санаторий «Аврора»</td>
+        <td>Аше (Лазаревский)</td>
+        <td>Эконом</td>
+        <td contenteditable="true">2 000–4 000</td>
+        <td>Лечение ЛОР/ОДА, пляж 350 м, доступная цена</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Спутник Алеана</td>
+        <td>Сочи (Хоста)</td>
+        <td>Средний+</td>
+        <td contenteditable="true">4 000–8 000</td>
+        <td>4★, Ultra All Inclusive, термальный комплекс, аквапарк</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Бридж Резорт</td>
+        <td>Сириус (Адлер)</td>
+        <td>Средний+</td>
+        <td contenteditable="true">5 000–12 000</td>
+        <td>4★, 707 номеров, пляж 300 м, Wellness, топ-5 семейных РФ</td>
+        <td contenteditable="true"></td>
+      </tr>
+      <tr>
+        <td>Сочи Парк Отель</td>
+        <td>Адлер</td>
+        <td>Средний+</td>
+        <td contenteditable="true">4 500–9 000</td>
+        <td>Тематический парк, аквапарк, семьи с детьми</td>
+        <td contenteditable="true"></td>
+      </tr>
     </tbody>
   </table>
 
@@ -604,12 +740,13 @@
 
   <!-- РАЗДЕЛ 7: РЕКОМЕНДАЦИИ -->
   <h2>7. Рекомендации и дорожная карта</h2>
+  <p class="editable-hint no-print">✏ Пункты дорожной карты редактируемые — кликните для изменения.</p>
 
   <h3>Немедленные действия (март–май 2026)</h3>
   <div class="roadmap">
     <div class="roadmap-item">
       <div class="roadmap-period">Март–Май 2026</div>
-      <div class="roadmap-content">
+      <div class="roadmap-content" contenteditable="true">
         <p>• Запустить МЦ в минимальной комплектации: терапевт + физиотерапевт на постоянной основе</p>
         <p>• Сформировать прайс на 5–7 базовых услуг с понятными названиями</p>
         <p>• Обучить ресепшн предлагать МЦ при заезде каждому гостю</p>
@@ -619,7 +756,7 @@
     </div>
     <div class="roadmap-item">
       <div class="roadmap-period">Июнь–Август 2026</div>
-      <div class="roadmap-content">
+      <div class="roadmap-content" contenteditable="true">
         <p>• Добавить нутрициолога / психолога (2–3 дня в неделю) — усилить велнес-направление</p>
         <p>• Запустить женскую wellness-программу как отдельный продукт с брендингом</p>
         <p>• Динамическое ценообразование: при загрузке ≥85% поднимать ADR Стандарта на 10–15%</p>
@@ -628,7 +765,7 @@
     </div>
     <div class="roadmap-item">
       <div class="roadmap-period">Сентябрь–Декабрь 2026</div>
-      <div class="roadmap-content">
+      <div class="roadmap-content" contenteditable="true">
         <p>• Загрузка межсезонья через корпоративные контракты и ФСС</p>
         <p>• Не перезаключать PROMO-контракты на 2027 в прежнем объёме (целевой предел: 10–15%)</p>
         <p>• Перевести освободившийся объём PROMO в Med и SPA пакеты</p>
@@ -669,7 +806,7 @@
     </tbody>
   </table>
 
-  <div class="note-box">
+  <div class="note-box" contenteditable="true">
     <strong>Ключевой вывод:</strong> Цель 1 200 млн ₽ достижима — но в горизонте 2027 года. В 2026 году объективным целевым бюджетом является <strong>1 000–1 050 млн ₽</strong>. Это реалистично, защищаемо и обеспечено конкретными мерами.
   </div>
 
@@ -695,5 +832,45 @@
   </div>
 
 </div>
+<script>
+function downloadDoc() {
+  // Собираем стили
+  var styles = '';
+  for (var i = 0; i < document.styleSheets.length; i++) {
+    try {
+      var rules = document.styleSheets[i].cssRules || document.styleSheets[i].rules;
+      for (var j = 0; j < rules.length; j++) { styles += rules[j].cssText + '\n'; }
+    } catch(e) {}
+  }
+  var pageContent = document.querySelector('.page').innerHTML;
+  var html = [
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office"',
+    ' xmlns:w="urn:schemas-microsoft-com:office:word"',
+    ' xmlns="http://www.w3.org/TR/REC-html40">',
+    '<head><meta charset="UTF-8">',
+    '<style>',
+    'body{font-family:Arial,sans-serif;font-size:11pt;color:#1a1a2e;line-height:1.5;}',
+    'table{width:100%;border-collapse:collapse;font-size:10pt;}',
+    'th{background:#1a1a2e;color:white;padding:6pt 8pt;font-size:9pt;}',
+    'td{padding:5pt 8pt;border-bottom:1pt solid #ddd;}',
+    'h2{font-size:13pt;font-weight:bold;text-transform:uppercase;color:#1a1a2e;margin:20pt 0 8pt;}',
+    'h3{font-size:11pt;font-weight:bold;color:#2a3a6e;margin:12pt 0 6pt;}',
+    '.no-print{display:none!important;}',
+    '.print-header{display:none;}',
+    '</style>',
+    '</head><body>',
+    pageContent,
+    '</body></html>'
+  ].join('');
+  var blob = new Blob([html], {type: 'application/msword'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'budget-report-aqva-2026.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+</script>
 </body>
 </html>
