@@ -463,6 +463,8 @@ export default function App() {
   const [competitorAnalysis, setCompetitorAnalysis] = useState('');
   const [competitorList, setCompetitorList] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoadingCompetitors, setIsLoadingCompetitors] = useState(false);
+  const [compDataVersion, setCompDataVersion] = useState(0);
 
   const [calcConfig, setCalcConfig] = useState(() => {
     try {
@@ -862,6 +864,97 @@ export default function App() {
       alert("Не удалось провести авто-анализ. Проверьте подключение или попробуйте позже.");
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleCompetitorAIUpdate = async () => {
+    if (!window.confirm('Запросить у AI актуальные цены и акции конкурентов?\n\nДанные будут получены из открытых источников — проверьте их точность перед использованием.')) return;
+    setIsLoadingCompetitors(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: `Найди актуальные данные на 2026 год по следующим санаториям и отелям Краснодарского края. Используй поиск по сайтам объектов, Яндекс.Путешествия, booking.com, ostrovok.ru.
+
+Список объектов:
+1. АкваЛоо (Лоо, Сочи)
+2. Акваград Hotel & SPA (Лоо, Сочи)
+3. Санаторий Магадан (Лоо, Сочи)
+4. Санаторий Горный воздух (Лоо, Сочи)
+5. Одиссея Wellness Resort (Лазаревское)
+6. Санаторий Бирюза (Лазаревское)
+7. Санаторий Чемитоквадже (Лазаревское)
+8. Санаторий Аврора (Аше, Лазаревский район)
+9. Спутник Алеана (Хоста, Сочи)
+10. Бридж Резорт (Сириус, Адлер)
+11. Сочи Парк Отель (Адлер)
+
+Для каждого объекта укажи:
+- priceRange: диапазон цен за сутки на человека в рублях (например "2500–5000")
+- promos: действующие акции на 2026 год (коротко, до 120 символов)
+
+Если точных данных нет — укажи приблизительный диапазон на основе категории объекта.`,
+        config: {
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              competitors: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING, description: "Название объекта из списка" },
+                    priceRange: { type: Type.STRING, description: "Диапазон цен ₽/сут. на человека" },
+                    promos: { type: Type.STRING, description: "Актуальные акции 2026" },
+                  },
+                  required: ["name", "priceRange", "promos"]
+                }
+              }
+            },
+            required: ["competitors"]
+          }
+        }
+      });
+
+      const data = JSON.parse(response.text || '{}');
+      if (data.competitors && Array.isArray(data.competitors)) {
+        const nameMap: Record<string, string> = {
+          'АкваЛоо': 'АкваЛоо',
+          'Акваград': 'Акваград Hotel & SPA',
+          'Акваград Hotel & SPA': 'Акваград Hotel & SPA',
+          'Магадан': 'Санаторий «Магадан»',
+          'Санаторий Магадан': 'Санаторий «Магадан»',
+          'Горный воздух': 'Санаторий «Горный воздух»',
+          'Санаторий Горный воздух': 'Санаторий «Горный воздух»',
+          'Одиссея': 'Одиссея Wellness Resort',
+          'Одиссея Wellness Resort': 'Одиссея Wellness Resort',
+          'Бирюза': 'Санаторий «Бирюза»',
+          'Санаторий Бирюза': 'Санаторий «Бирюза»',
+          'Чемитоквадже': 'Санаторий «Чемитоквадже»',
+          'Санаторий Чемитоквадже': 'Санаторий «Чемитоквадже»',
+          'Аврора': 'Санаторий «Аврора»',
+          'Санаторий Аврора': 'Санаторий «Аврора»',
+          'Спутник Алеана': 'Спутник Алеана',
+          'Бридж Резорт': 'Бридж Резорт',
+          'Сочи Парк Отель': 'Сочи Парк Отель',
+        };
+        setCompOverrides(prev => {
+          const updated = { ...prev };
+          data.competitors.forEach((c: { name: string; priceRange: string; promos: string }) => {
+            const key = nameMap[c.name] || c.name;
+            updated[key] = { price: c.priceRange || '', promos: c.promos || '' };
+          });
+          return updated;
+        });
+        setCompDataVersion(v => v + 1);
+      }
+    } catch (error) {
+      console.error("Competitor AI update failed:", error);
+      alert("Не удалось получить данные. Проверьте подключение и попробуйте позже.");
+    } finally {
+      setIsLoadingCompetitors(false);
     }
   };
 
@@ -2869,7 +2962,24 @@ export default function App() {
                         5. Конкурентная среда — Сочи и регион
                       </h2>
 
-                      <p className="text-[9px] text-slate-400 mb-2 no-print" style={{ fontFamily: 'Arial, sans-serif' }}>✏ Ячейки «Диапазон цен» и «Акции 2026» — редактируемые, сохраняются автоматически</p>
+                      <div className="flex items-center justify-between mb-2 no-print">
+                        <p className="text-[9px] text-slate-400" style={{ fontFamily: 'Arial, sans-serif' }}>✏ Ячейки «Диапазон цен» и «Акции 2026» — редактируемые, сохраняются автоматически</p>
+                        <button
+                          onClick={handleCompetitorAIUpdate}
+                          disabled={isLoadingCompetitors}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[10px] font-bold rounded-lg transition-colors"
+                          style={{ fontFamily: 'Arial, sans-serif' }}
+                        >
+                          {isLoadingCompetitors ? (
+                            <>
+                              <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full"></span>
+                              Ищу данные...
+                            </>
+                          ) : (
+                            <> Обновить через AI</>
+                          )}
+                        </button>
+                      </div>
                       <div className="overflow-x-auto mb-5">
                         <table className="w-full text-left border-collapse text-[10px]" style={{ fontFamily: 'Arial, sans-serif' }}>
                           <thead>
@@ -2904,7 +3014,7 @@ export default function App() {
                                 <td className="p-2 border border-slate-200 text-slate-600">{row.str}</td>
                                 <td className="p-2 border border-slate-200">
                                   <input
-                                    key={row.name + '_price'}
+                                    key={row.name + '_price_v' + compDataVersion}
                                     type="text"
                                     defaultValue={compOverrides[row.name]?.price || ''}
                                     onBlur={e => setCompOverrides(prev => ({ ...prev, [row.name]: { ...prev[row.name], price: e.target.value } }))}
@@ -2914,7 +3024,7 @@ export default function App() {
                                 </td>
                                 <td className="p-2 border border-slate-200">
                                   <input
-                                    key={row.name + '_promos'}
+                                    key={row.name + '_promos_v' + compDataVersion}
                                     type="text"
                                     defaultValue={compOverrides[row.name]?.promos || ''}
                                     onBlur={e => setCompOverrides(prev => ({ ...prev, [row.name]: { ...prev[row.name], promos: e.target.value } }))}
