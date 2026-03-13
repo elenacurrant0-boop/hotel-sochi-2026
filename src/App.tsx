@@ -4395,14 +4395,39 @@ ${input}`,
                       <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles size={20} className="text-indigo-300" /> AI-лаборатория продукта</h2>
                       <p className="text-xs text-indigo-300 mt-1 uppercase tracking-widest">5 специализированных агентов · анализ · исследование · стратегия</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {Object.values(agentOutputs).some(o => o.status === 'done') && (
-                        <button onClick={() => window.print()} className="text-xs bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-3 py-1.5 rounded-lg transition-colors">
-                          Распечатать
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {Object.values(agentOutputs).some(o => o.status === 'done') && (<>
+                        <button onClick={() => {
+                          const date = new Date().toLocaleDateString('ru-RU');
+                          const sections = AGENT_DEFS
+                            .filter(ag => agentOutputs[ag.key].status === 'done')
+                            .map(ag => `<h2>${ag.icon} ${ag.name}</h2><pre style="white-space:pre-wrap;font-family:Arial;font-size:11pt">${agentOutputs[ag.key].output}</pre>${agentOutputs[ag.key].feedback ? `<h3>Обратная связь:</h3><p>${agentOutputs[ag.key].feedback}</p>` : ''}<hr/>`)
+                            .join('');
+                          const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset='utf-8'><style>body{font-family:Arial;font-size:11pt;margin:2cm}h1{color:#1a1a2e}h2{color:#2a3a8e;margin-top:20pt}pre{font-size:10pt;line-height:1.5}hr{border:1px solid #ccc}</style></head><body><h1>AI-анализ продукта · ${date}</h1><p><b>Исходный материал:</b><br/>${agentInputText}</p><hr/>${sections}</body></html>`;
+                          const blob = new Blob([html], { type: 'application/msword' });
+                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                          a.download = `ai-анализ-${date.replace(/\./g,'-')}.doc`; a.click();
+                        }} className="text-xs bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-3 py-1.5 rounded-lg transition-colors">
+                          Скачать .doc
                         </button>
-                      )}
+                        <label className="text-xs bg-blue-500 hover:bg-blue-400 text-white font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+                          Загрузить аудит
+                          <input type="file" accept=".txt,.doc,.docx" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0]; if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => {
+                              const text = ev.target?.result as string;
+                              setAgentOutputs(prev => ({ ...prev, strategist: { ...prev.strategist, status: 'done', output: (prev.strategist.output ? prev.strategist.output + '\n\n--- АУДИТ ---\n\n' : '') + text } }));
+                            };
+                            reader.readAsText(file);
+                          }} />
+                        </label>
+                        <button onClick={() => window.print()} className="text-xs bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-3 py-1.5 rounded-lg transition-colors">
+                          Печать PDF
+                        </button>
+                      </>)}
                       <button onClick={resetAgentSession} className="text-xs text-indigo-300 hover:text-white border border-indigo-600 hover:border-indigo-400 px-3 py-1.5 rounded-lg transition-colors">
-                        Сбросить сессию
+                        Сбросить
                       </button>
                     </div>
                   </div>
