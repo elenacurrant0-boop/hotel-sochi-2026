@@ -251,7 +251,9 @@ const initialPrices = () => {
     }
   };
   Object.keys(p).forEach(rt => {
-    p[rt].promo = PRICE_PERIODS.map((pp, i) => Math.round(p[rt].ultra[i] * 0.9));
+    p[rt].promo  = PRICE_PERIODS.map((_pp, i) => Math.round(p[rt].ultra[i] * 0.90));
+    p[rt].promo2 = PRICE_PERIODS.map((_pp, i) => Math.round(p[rt].ultra[i] * 0.85));
+    p[rt].promo3 = PRICE_PERIODS.map((_pp, i) => Math.round(p[rt].aqua_bb[i] * 0.90));
   });
   return p;
 };
