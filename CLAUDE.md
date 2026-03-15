@@ -5,3 +5,5 @@
 - **После каждого значимого изменения** — делать `git add` + `git commit` + `git push` на GitHub.
 - **Обязательно в конце каждой рабочей сессии** — пушить все изменения, даже мелкие.
 - Перед пушем проверять `git status` — убедиться, что ничего не осталось незакоммиченным.
+- **Локальный backup** — в конце сессии копировать изменения в `D:\BACKUP\PROJECTS_2026` командой:
+  `robocopy "D:\PROJECTS_2026\my_second_project" "D:\BACKUP\PROJECTS_2026\my_second_project" /E /XD node_modules .git /NP`
